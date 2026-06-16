@@ -1,3 +1,4 @@
 {
-  "VotingSystemModule#IdentityRegistry": "0xbB63C614da59070b09C6811E447F5a50b29610dD"
+  "VotingSystemModule#IdentityRegistry": "0xbB63C614da59070b09C6811E447F5a50b29610dD",
+  "VotingSystemModule#VotingApp": "0x5aa68027Be07A6077932C0326E95E60E3730Ab13"
 }

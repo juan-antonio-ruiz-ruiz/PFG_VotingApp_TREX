@@ -5,10 +5,9 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title IIdentityRegistry (Interfaz)
- * @dev Define el plano o la "firma" de la funcion que queremos consultar del contrato externo.
+ * @dev Define el plano o la "firma" de las funciones que queremos consultar del contrato externo.
  * Recrea de forma simplificada el componente de Gestión de Identidad (ONCHAINID / ERC-735) del ecosistema T-REX.
- * El sistema de votación solo necesita saber una única cosa de la identidad: si el usuario está verificado o no 
- * (con la función isVerified)
+ * El sistema de votación solo necesita validar que el usuario tenga una credencial válida.
  */
 interface IIdentityRegistry {
     function isVerified(address usuario) external view returns (bool);
@@ -27,46 +26,49 @@ contract VotingApp is Ownable {
 
     // Variable de tipo Interfaz que almacena la dirección donde esta desplegado el contrato de identidad
     IIdentityRegistry public identityRegistry;
-    
-    // Variable global para abrir/cerrar la votación. true = votación abierta, false = votación cerrada
-    bool public openVote;
 
     // --- ESTRUCTURAS DE DATOS ---
 
     struct Candidate {
-        uint256 id;        // Identificador numerico unico (0, 1, 2...)
-        string name;     // Nombre de la votación
-        uint256 votes;     // Contador de votos recibidos
+        uint256 id;              // Identificador numerico unico dentro de cada elección
+        uint256 claimTopic;      // Tipo de credencial asociado a esta elección
+        string name;             // Nombre del candidato
+        uint256 votes;           // Contador de votos recibidos
     }
 
     // --- ALMACENAMIENTO (PERSISTENCIA) ---
 
-    // Array dinámico que almacena la lista completa de candidatos disponibles (opciones de la votación)
-    Candidate[] public candidates;
-    // Contador global de candidatos 
-    uint256 public totalCandidates;
+    // Mapping que almacena si la votación esta abierta por cada claim topic
+    mapping(uint256 => bool) public openVote;
+    
+    // Mapping que almacena los candidatos para cada claim topic
+    mapping(uint256 => Candidate[]) private candidates;
+    
+    // Mapping que almacena el contador de candidatos para cada claim topic
+    mapping(uint256 => uint256) public totalCandidates;
 
-    // Control para evitar doble voto: Mapeo que registra si una dirección de billetera ya ha participado
-    mapping(address => bool) public hasVoted;
+    // Control para evitar doble voto: Mapeo que registra si una dirección ya ha votado en cada claim topic
+    mapping(address => mapping(uint256 => bool)) public hasVoted;
 
     // --- EVENTOS ---
-    event VoteAdded(address indexed voter, uint256 indexed candidateId);
-    event VotingStatusChanged(bool open);
+    event VoteAdded(address indexed voter, uint256 indexed claimTopic, uint256 indexed candidateId);
+    event VotingStatusChanged(uint256 indexed claimTopic, bool open);
 
 
     /**
      * @notice Indica si el votante cumple las reglas de elegibilidad (Modular Compliance de ERC-3643).
      * @dev Intercepta la transaccion de voto y aplica una triple verificación de seguridad on-chain.
+     * @param _claimTopic El tipo de credencial de la elección en la que desea votar.
      */
-    modifier isEligible() {
+    modifier isEligible(uint256 _claimTopic) {
         // 1. FILTRO DE IDENTIDAD (Inter-contract call): Llama al contrato externo de Registro
         require(identityRegistry.isVerified(msg.sender), "Transaccion rechazada: Identidad no verificada");
         
-        // 2. FILTRO DE REGLA TEMPORAL: Comprueba si el periodo electoral sigue activo
-        require(openVote, "Transaccion rechazada: Periodo de votacion cerrado");
+        // 2. FILTRO DE REGLA TEMPORAL: Comprueba si el periodo electoral sigue activo para este topic
+        require(openVote[_claimTopic], "Transaccion rechazada: Periodo de votacion cerrado");
         
-        // 3. FILTRO DE RESTRICCION DE NEGOCIO: Evita el fraude del doble voto
-        require(!hasVoted[msg.sender], "Transaccion rechazada: El usuario ya ha votado");
+        // 3. FILTRO DE RESTRICCION DE NEGOCIO: Evita el fraude del doble voto en esta elección
+        require(!hasVoted[msg.sender][_claimTopic], "Transaccion rechazada: El usuario ya ha votado en esta eleccion");
         
         _; // Si los 3 requisitos son exitosos, se ejecuta la función addVote
     }
@@ -80,8 +82,7 @@ contract VotingApp is Ownable {
     constructor(address _initialIdentityRegistry) Ownable(msg.sender) {        
         require(_initialIdentityRegistry != address(0), "Direccion de identidad invalida");
         
-        openVote = true; // Por defecto, la votación se inicia abierta al desplegar
-        identityRegistry = IIdentityRegistry(_initialIdentityRegistry); 
+        identityRegistry = IIdentityRegistry(_initialIdentityRegistry);
     }
 
     // --- FUNCIONES DE ESCRITURA (MODIFICAN EL ESTADO / CONSUMEN GAS) ---
@@ -95,46 +96,51 @@ contract VotingApp is Ownable {
     }
 
     /**
-     * @notice Permite al administrador añadir nuevas opciones a la votación 
-     * @param _name Cadena de texto. 
+     * @notice Permite al administrador añadir nuevas opciones a una votación.
+     * @param _claimTopic El tipo de credencial para la cual se registra el candidato.
+     * @param _name Nombre del candidato.
      */
-    function addCandidate(string memory _name) external onlyOwner {
-        // Insertamos el nuevo candidato al final del array 'candidates'
-        candidates.push(Candidate({
-            id: totalCandidates,
+    function addCandidate(uint256 _claimTopic, string memory _name) external onlyOwner {
+        // Insertamos el nuevo candidato al final del array de ese claim topic
+        candidates[_claimTopic].push(Candidate({
+            id: totalCandidates[_claimTopic],
+            claimTopic: _claimTopic,
             name: _name,
             votes: 0 // Inicia con cero votos acumulados
         }));
         
-        // Incrementamos el contador para el ID del siguiente candidato
-        totalCandidates++;
+        // Incrementamos el contador para el ID del siguiente candidato en ese topic
+        totalCandidates[_claimTopic]++;
     }
 
     /**
-     * @notice Registra el voto en la blockchain.
+     * @notice Registra el voto en la blockchain para una elección específica.
      * @dev Utiliza el modificador 'isEligible' para denegar el voto a votantes no autorizados.
-     * @param candidateId El numero identificador de la opción elegida.
+     * @param _claimTopic El tipo de credencial de la elección en la que desea votar.
+     * @param _candidateId El numero identificador del candidato elegido.
      */
-    function addVote(uint256 candidateId) external isEligible {
-        //Garantiza que el ID enviado existe dentro del rango de candidatos dados de alta
-        require(candidateId < totalCandidates, "El candidato elegido no existe");
+    function addVote(uint256 _claimTopic, uint256 _candidateId) external isEligible(_claimTopic) {
+        //Garantiza que el ID enviado existe dentro del rango de candidatos de este claim topic
+        require(_candidateId < totalCandidates[_claimTopic], "El candidato elegido no existe en esta eleccion");
 
         // Cambiamos el estado del votante en el almacenamiento para evitar que vuelva a llamar a la funcion
-        hasVoted[msg.sender] = true;
+        hasVoted[msg.sender][_claimTopic] = true;
         
-        // Incrementamos el contador de votos del candidato seleccionado dentro del array
-        candidates[candidateId].votes++;
+        // Incrementamos el contador de votos del candidato seleccionado
+        candidates[_claimTopic][_candidateId].votes++;
 
         // Emitimos el evento de exito para auditar la transaccion
-        emit VoteAdded(msg.sender, candidateId);
+        emit VoteAdded(msg.sender, _claimTopic, _candidateId);
     }
 
     /**
-     * @notice Cierra o abre la votación digital segun las necesidades de la mesa electoral.
+     * @notice Cierra o abre la votación digital para un claim topic específico.
+     * @param _claimTopic El tipo de credencial de la elección a modificar.
+     * @param _status true para abrir, false para cerrar.
      */
-    function changeVotingStatus(bool status) external onlyOwner {
-        openVote = status;
-        emit VotingStatusChanged(status);
+    function changeVotingStatus(uint256 _claimTopic, bool _status) external onlyOwner {
+        openVote[_claimTopic] = _status;
+        emit VotingStatusChanged(_claimTopic, _status);
     }
 
     // --- FUNCIONES DE LECTURA (VIEW / GRATUITAS) ---
@@ -142,12 +148,14 @@ contract VotingApp is Ownable {
     /**
      * @notice Devuelve la informacion publica de un candidato especifico.
      * @dev Utilizado por el script 'app.js' del frontend para pintar los resultados en la interfaz web.
+     * @param _claimTopic El tipo de credencial de la elección.
+     * @param _candidateId El identificador del candidato.
      */
-    function getCandidate(uint256 candidateId) external view returns (string memory name, uint256 votes) {
-        require(candidateId < totalCandidates, "El candidato seleccionado no existe");
+    function getCandidate(uint256 _claimTopic, uint256 _candidateId) external view returns (string memory name, uint256 votes) {
+        require(_candidateId < totalCandidates[_claimTopic], "El candidato seleccionado no existe en esa eleccion");
         
         // Recuperamos el candidato de la persistencia del contrato
-        Candidate memory candidate = candidates[candidateId];
+        Candidate memory candidate = candidates[_claimTopic][_candidateId];
         
         // Retornamos multiples valores (el nombre de tipo string en memory y el numero de votos)
         return (candidate.name, candidate.votes);

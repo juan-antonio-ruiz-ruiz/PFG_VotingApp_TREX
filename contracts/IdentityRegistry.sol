@@ -6,7 +6,8 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title identityRegistry
  * @author Juan Antonio Ruiz (PFG - ETSI Informatica UNED)
- * @notice Este contrato actúa como el motor de elegibilidad on-chain (Identity Registry).
+ * @notice Este contrato actúa como el motor de elegibilidad on-chain (Identity Registry). 
+ * Gestiona múltiples tipos de credenciales de identidad (Claim Topics) dinámicamente.
  * @dev Recrea de forma simplificada el comportamiento del estandard ERC-3643 (Protocolo T-REX),
  * gestionando el alta, baja y validación de claims (credenciales de identidad).
  */
@@ -14,9 +15,10 @@ contract IdentityRegistry is Ownable {
     
     // --- VARIABLES DE ESTADO ---
    
-    // Constante numerica que identifica el tipo de certificado (Claim Topic) exigido.
-    // El numero 50 actua en este contexto como el código que define "Usuario con Derecho a Voto".
-    uint256 public constant CLAIM_TOPIC = 50;
+    // Array que almacenará los sufragios (Claim Topics) permitidos.    
+    uint256[] private allowedClaimTopics;
+    // Mapeo para búsqueda rápida de topics permitidos
+    mapping(uint256 => bool) private isClaimTopicAllowed;
 
     // --- ESTRUCTURAS DE DATOS ---
 
@@ -31,14 +33,16 @@ contract IdentityRegistry is Ownable {
     // --- ALMACENAMIENTO (PERSISTENCIA) ---
 
     // Mapeo clave-valor: Clave publica del usuario => Datos de su credencial de identidad.
-    // Se declara 'private' por buenas practicas de encapsulamiento; se accede mediante 'isVerified'.
-    mapping(address => Credential) private _credentialRegistry;
+    // Se declara 'private' por buenas practicas de encapsulamiento; se accede mediante 'isVerified'.    
+    mapping(address => mapping(uint256 => Credential)) private _credentialRegistry;
 
     // --- EVENTOS (INDEXADOS PARA FACILITAR LA LECTURA DEL FRONTEND) ---
     // Se emite cuando se autoriza una nueva wallet en el sistema
     event CredentialAuthorized(address indexed user, address indexed issuer, uint256 claimTopic);
     // Se emite cuando el administrador retira el derecho a voto de una wallet
-    event CredentialRevoked(address indexed user);
+    event CredentialRevoked(address indexed user, uint256 claimTopic);
+    // Se emite cuando se agrega un nuevo tipo de credencial permitido
+    event ClaimTopicAdded(uint256 indexed claimTopic);
 
 
     // --- CONSTRUCTOR ---
@@ -46,59 +50,87 @@ contract IdentityRegistry is Ownable {
     // Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
     constructor() Ownable(msg.sender) {
         // Ownable guardará internamente al dueño del contrato (administrador de la mesa electoral)
+        // Inicializamos con el topic por defecto 50
+        allowedClaimTopics.push(50);
+        isClaimTopicAllowed[50] = true;
     }
 
     // --- FUNCIONES EXTERNAS (ESCRITURA) ---
-    
+
+    /**
+     * @notice Permite al administrador agregar una nueva votación.
+     * @param _claimTopic El nuevo identificador de tipo de credencial a permitir.
+     */
+    function addClaimTopic(uint256 _claimTopic) external onlyOwner {
+        require(!isClaimTopicAllowed[_claimTopic], "La votacion ya existe");
+        
+        allowedClaimTopics.push(_claimTopic);
+        isClaimTopicAllowed[_claimTopic] = true;
+        
+        emit ClaimTopicAdded(_claimTopic);
+    }
+
     /**
      * @notice Registra un nuevo votante asignándole una credencial válida en el sistema.
      * @dev Simula la funcion "addClaim" del componente ONCHAINID (ERC-735).
      * @param _user Dirección de la billetera del usuario.
+     * @param _claimTopic El tipo de credencial a asignar (debe estar en allowedClaimTopics).
      * @param _signature Datos criptograficos de la firma (simulada durante las pruebas).
      */
-    function addVoter(address _user, bytes memory _signature) external onlyOwner {
+    function addVoter(address _user, uint256 _claimTopic, bytes memory _signature) external onlyOwner {
         // Evita registrar la direccion cero (invalida/quemada)
         require(_user != address(0), "Direccion invalida");
+        // Valida que el claim topic sea permitido
+        require(isClaimTopicAllowed[_claimTopic], "Esta votacion no esta permitida");
         
         // Escritura en STORAGE: Guardamos la estructura en el mapeo de persistencia
-        _credentialRegistry[_user] = Credential({
-            claimTopic: CLAIM_TOPIC,
+        _credentialRegistry[_user][_claimTopic] = Credential({
+            claimTopic: _claimTopic,
             issuer: owner(),
             signature: _signature,
             valid: true
         });
 
         // Emitimos el evento para que los servidores Web3 o el frontend capturen el cambio al instante
-        emit CredentialAuthorized(_user, owner(), CLAIM_TOPIC);
+        emit CredentialAuthorized(_user, owner(), _claimTopic);
     }
 
     /**
      * @notice Invalida la credencial de un usuario, retirándole el permiso para participar.
      * @param _user Dirección de la billetera que se desea revocar.
+     * @param _claimTopic El tema de la credencial que se desea revocar.
      */
-    function revokeVoter(address _user) external onlyOwner {
+    function revokeVoter(address _user, uint256 _claimTopic) external onlyOwner {
         // Control de errores: No se puede revocar a alguien que no esta activo
-        require(_credentialRegistry[_user].valid, "El usuario no esta registrado");
+        require(_credentialRegistry[_user][_claimTopic].valid, "El usuario no esta registrado en esa votacion");
         
         // Modificacion en STORAGE: Apagamos el interruptor de validez
-        _credentialRegistry[_user].valid = false;
+        _credentialRegistry[_user][_claimTopic].valid = false;
         
-        emit CredentialRevoked(_user);
+        emit CredentialRevoked(_user, _claimTopic);
     }
 
     // --- FUNCIONES DE CONSULTA (LECTURA/VIEW) ---
 
     /**
+     * @notice Devuelve la lista de claim topics permitidos.
+     * @return Array con los identificadores de tipos de credencial permitidos.
+     */
+    function getAllowedClaimTopics() external view returns (uint256[] memory) {
+        return allowedClaimTopics;
+    }
+
+    /**
      * @notice Funcion CORE exigida por el Whitepaper de ERC-3643 (Identity Registry).
      * @dev Es una funcion de tipo 'view', no consume Gas cuando se llama desde una aplicacion cliente (web).
      * @param _user Direccion de la billetera que desea interactuar con la dApp.
-     * @return true si la wallet posee una credencial activa, del tema correcto y firmada por el administrador.
+     * @return true si la wallet posee una credencial activa, de un tema permitido y firmada por el administrador.
      */
-    function isVerified(address _user) external view returns (bool) {
+    function isVerified(address _user, uint256 _topic) external view returns (bool) {
         // Recuperamos temporalmente la estructura desde el storage a la memoria volatil
-        Credential memory cred = _credentialRegistry[_user];
+        Credential memory cred = _credentialRegistry[_user][_topic];
         
         // Evaluacion logica de los 3 requisitos de cumplimiento del protocolo T-REX
-        return (cred.valid && cred.claimTopic == CLAIM_TOPIC && cred.issuer == owner());
+        return (cred.valid && cred.claimTopic == _topic &&isClaimTopicAllowed[cred.claimTopic] && cred.issuer == owner());
     }
 }
