@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title identityRegistry
@@ -19,6 +19,7 @@ contract IdentityRegistry is Ownable {
     uint256 public constant CLAIM_TOPIC = 50;
 
     // --- ESTRUCTURAS DE DATOS ---
+
     // Representa la estructura interna de una credencial ERC-3643 guardada on-chain
     struct Credential {
         uint256 claimTopic;     // Identificador del tipo de credencial (ej: 50)
@@ -28,6 +29,7 @@ contract IdentityRegistry is Ownable {
     }
 
     // --- ALMACENAMIENTO (PERSISTENCIA) ---
+
     // Mapeo clave-valor: Clave publica del usuario => Datos de su credencial de identidad.
     // Se declara 'private' por buenas practicas de encapsulamiento; se accede mediante 'isVerified'.
     mapping(address => Credential) private _credentialRegistry;
@@ -39,7 +41,15 @@ contract IdentityRegistry is Ownable {
     event CredentialRevoked(address indexed user);
 
 
+    // --- CONSTRUCTOR ---
+
+    // Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
+    constructor() Ownable(msg.sender) {
+        // Ownable guardará internamente al dueño del contrato (administrador de la mesa electoral)
+    }
+
     // --- FUNCIONES EXTERNAS (ESCRITURA) ---
+    
     /**
      * @notice Registra un nuevo votante asignándole una credencial válida en el sistema.
      * @dev Simula la funcion "addClaim" del componente ONCHAINID (ERC-735).

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 /**
  * @title IIdentityRegistry (Interfaz)
@@ -21,17 +21,18 @@ interface IIdentityRegistry {
  * @dev Implementa el contrato "Modular Compliance" del estandard ERC-3643, aplicando filtros
  * de elegibilidad dinamicos antes de procesar cualquier voto en la blockchain.
  */
-contract VotingApp {
+contract VotingApp is Ownable {
     
     // --- VARIABLES DE INTERCONEXION Y ESTADO ---
+
     // Variable de tipo Interfaz que almacena la dirección donde esta desplegado el contrato de identidad
     IIdentityRegistry public identityRegistry;
-    // Cuenta administradora de la mesa electoral (crea candidatos y abre/cierra la votación)
-    address private _administrator;
+    
     // Variable global para abrir/cerrar la votación. true = votación abierta, false = votación cerrada
     bool public openVote;
 
     // --- ESTRUCTURAS DE DATOS ---
+
     struct Candidate {
         uint256 id;        // Identificador numerico unico (0, 1, 2...)
         string name;     // Nombre de la votación
@@ -39,6 +40,7 @@ contract VotingApp {
     }
 
     // --- ALMACENAMIENTO (PERSISTENCIA) ---
+
     // Array dinámico que almacena la lista completa de candidatos disponibles (opciones de la votación)
     Candidate[] public candidates;
     // Contador global de candidatos 
@@ -51,11 +53,6 @@ contract VotingApp {
     event VoteAdded(address indexed voter, uint256 indexed candidateId);
     event VotingStatusChanged(bool open);
 
-    // --- MODIFICADORES DE ACCESO ---
-    modifier onlyAdmin() {
-        require(msg.sender == _administrator, "No eres es el administrador");
-        _;
-    }
 
     /**
      * @notice Indica si el votante cumple las reglas de elegibilidad (Modular Compliance de ERC-3643).
@@ -75,14 +72,16 @@ contract VotingApp {
     }
 
     // --- CONSTRUCTOR ---
+    
     /**
-     * @notice Constructor del sistema de votación.
-     * @param _initialIdentityRegistry Dirección real (0x...) del contrato IdentityRegistry previamente desplegado.
+     * @notice Constructor del sistema de votación. Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
+     * @param _initialIdentityRegistry Dirección real del contrato IdentityRegistry previamente desplegado.
      */
-    constructor(address _initialIdentityRegistry)  {        
-        _administrator = msg.sender;
+    constructor(address _initialIdentityRegistry) Ownable(msg.sender) {        
+        require(_initialIdentityRegistry != address(0), "Direccion de identidad invalida");
+        
         openVote = true; // Por defecto, la votación se inicia abierta al desplegar
-        identityRegistry = IIdentityRegistry(_initialIdentityRegistry);  //direccion del contrato externo de identidad desplegado previamente
+        identityRegistry = IIdentityRegistry(_initialIdentityRegistry); 
     }
 
     // --- FUNCIONES DE ESCRITURA (MODIFICAN EL ESTADO / CONSUMEN GAS) ---
@@ -91,7 +90,7 @@ contract VotingApp {
     /**
     * @param _identityAddress Direccion real (0x...) del contrato IdentityRegistry previamente desplegado.
     */
-    function setIdentityRegistry(address _identityAddress) external onlyAdmin {
+    function setIdentityRegistry(address _identityAddress) external onlyOwner {
         identityRegistry = IIdentityRegistry(_identityAddress);
     }
 
@@ -99,7 +98,7 @@ contract VotingApp {
      * @notice Permite al administrador añadir nuevas opciones a la votación 
      * @param _name Cadena de texto. 
      */
-    function addCandidate(string memory _name) external onlyAdmin {
+    function addCandidate(string memory _name) external onlyOwner {
         // Insertamos el nuevo candidato al final del array 'candidates'
         candidates.push(Candidate({
             id: totalCandidates,
@@ -133,7 +132,7 @@ contract VotingApp {
     /**
      * @notice Cierra o abre la votación digital segun las necesidades de la mesa electoral.
      */
-    function changeVotingStatus(bool status) external onlyAdmin {
+    function changeVotingStatus(bool status) external onlyOwner {
         openVote = status;
         emit VotingStatusChanged(status);
     }
