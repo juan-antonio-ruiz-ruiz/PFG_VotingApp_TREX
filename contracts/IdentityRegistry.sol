@@ -19,6 +19,8 @@ contract IdentityRegistry is Ownable {
     uint256[] private allowedClaimTopics;
     // Mapeo para búsqueda rápida de topics permitidos
     mapping(uint256 => bool) private isClaimTopicAllowed;
+    // Mapeo para almacenar la descripción de cada claim topic
+    mapping(uint256 => string) private claimTopicDescriptions;
 
     // --- ESTRUCTURAS DE DATOS ---
 
@@ -42,7 +44,7 @@ contract IdentityRegistry is Ownable {
     // Se emite cuando el administrador retira el derecho a voto de una wallet
     event CredentialRevoked(address indexed user, uint256 claimTopic);
     // Se emite cuando se agrega un nuevo tipo de credencial permitido
-    event ClaimTopicAdded(uint256 indexed claimTopic);
+    event ClaimTopicAdded(uint256 indexed claimTopic, string description);
 
 
     // --- CONSTRUCTOR ---
@@ -53,6 +55,7 @@ contract IdentityRegistry is Ownable {
         // Inicializamos con un topic por defecto: 50
         allowedClaimTopics.push(50);
         isClaimTopicAllowed[50] = true;
+        claimTopicDescriptions[50] = "Votacion por defecto";
     }
 
     // --- FUNCIONES EXTERNAS (ESCRITURA) ---
@@ -60,14 +63,17 @@ contract IdentityRegistry is Ownable {
     /**
      * @notice Permite al administrador agregar una nueva votación.
      * @param _claimTopic El nuevo identificador de tipo de credencial a permitir.
+     * @param _description Descripción de la elección para mostrar en la GUI.
      */
-    function addClaimTopic(uint256 _claimTopic) external onlyOwner {
+    function addClaimTopic(uint256 _claimTopic, string memory _description) external onlyOwner {
         require(!isClaimTopicAllowed[_claimTopic], "La votacion ya existe");
+        require(bytes(_description).length > 0, "La descripcion no puede estar vacia");
         
         allowedClaimTopics.push(_claimTopic);
         isClaimTopicAllowed[_claimTopic] = true;
+        claimTopicDescriptions[_claimTopic] = _description;
         
-        emit ClaimTopicAdded(_claimTopic);
+        emit ClaimTopicAdded(_claimTopic, _description);
     }
 
     /**
@@ -127,6 +133,16 @@ contract IdentityRegistry is Ownable {
      */
     function isAllowedClaimTopic(uint256 _claimTopic) external view returns (bool) {
         return isClaimTopicAllowed[_claimTopic];
+    }
+
+    /**
+     * @notice Obtiene la descripción de un claim topic.
+     * @param _claimTopic El identificador del tipo de credencial.
+     * @return La descripción de la elección.
+     */
+    function getClaimTopicDescription(uint256 _claimTopic) external view returns (string memory) {
+        require(isClaimTopicAllowed[_claimTopic], "El claim topic no existe");
+        return claimTopicDescriptions[_claimTopic];
     }
 
     /**

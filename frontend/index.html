@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PFG - Sistema Multi-Elección ERC-3643</title>
+<style>
+body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f8f9fa; color: #333; }
+.card { background: white; border: 1px solid #e3e6f0; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+h2, h3 { margin-top: 0; color: #4e73df; }
+button { background-color: #4e73df; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.3s; margin-bottom: 10px; }
+button:hover { background-color: #2e59d9; }
+button:disabled { background-color: #cccccc; cursor: not-allowed; }
+input, select { width: 100%; padding: 10px; margin: 8px 0 16px 0; border: 1px solid #d1d3e2; border-radius: 6px; box-sizing: border-box; }
+.status { font-weight: bold; padding: 8px; border-radius: 4px; text-align: center; margin-top: 10px; }
+.open { background-color: #d4edda; color: #155724; }
+.closed { background-color: #f8d7da; color: #721c24; }
+/* Estilos para el sistema modular de administración 🌟 */
+.btn-admin { background-color: #f6c23e; color: #333; }
+.btn-admin:hover { background-color: #dfa81e; }
+.btn-danger { background-color: #e74a3b; color: white; }
+.btn-danger:hover { background-color: #be2617; }
+.nav-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #e3e6f0; }
+.tab { padding: 10px 20px; cursor: pointer; font-weight: bold; color: #4e73df; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; }
+.tab.active { background-color: white; border-color: #e3e6f0; margin-bottom: -2px; color: #333; }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+.row { display: flex; gap: 15px; }
+.col { flex: 1; }
+</style>
+</head>
+<body>
+<h2> Sistema de Votación Múltiple Descentralizado con Protocolo T-REX</h2>
+<p>Ecosistema de Gestión de Identidad ERC-3643 / ONCHAINID</p>
+
+<!-- Bloque 1: Conexión Web3 -->
+<div class="card">
+<h3> Acceso con tu Wallet de MetaMask</h3>
+<button id="btnConnect">Conectar Wallet</button>
+<p id="lblAccount" style="word-break: break-all; margin-top: 12px; color: #6e707e;">Billetera: No conectada</p>
+</div>
+
+<!-- Selector de Vistas Exclusivo para el Administrador -->
+<div class="nav-tabs" id="adminNavbar" style="display: none;">
+    <div class="tab active" id="tabVoterView">Portal Votante</div>
+    <div class="tab" id="tabAdminView">Panel de Control (Admin)</div>
+</div>
+
+<!-- ================= SECCIÓN VOTA: PORTAL VOTANTE ================= -->
+<div id="panelVoterContainer" class="tab-content active">
+    <!-- Bloque 2: Selección del Contexto Electoral -->
+    <div class="card">
+    <h3> Selección de Votación</h3>
+    <label for="selectElection">Selecciona una Elección:</label>
+    <select id="selectElection"></select>
+    <button id="btnLoadElection">Cargar Datos de la Blockchain</button>
+    <div id="electionStatus" class="status" style="display: none;"></div>
+    </div>
+
+    <!-- Bloque 3: Panel de Escrutinio e Interacción -->
+    <div class="card" id="panelVoting" style="display: none;">
+    <h3> Opciones Disponibles</h3>
+    <label for="selectCandidates">Selecciona tu candidato:</label>
+    <select id="selectCandidates"></select>
+    <button id="btnVote" disabled>Emitir Voto Inmutable</button>
+    </div>
+</div>
+
+<!-- ================= SECCIÓN GESTIÓN: PANEL DE CONTROL ADMINISTRATIVO 🌟 ================= -->
+<div id="panelAdminContainer" class="tab-content">
+    <!-- Parada de Emergencia -->
+    <div class="card">
+        <h3> Control de Ciclo de Vida (Pausable OpenZeppelin)</h3>
+        <div class="row">
+            <div class="col"><button id="btnPause" class="btn-danger">Pausar Contrato</button></div>
+            <div class="col"><button id="btnUnpause">Reanudar Contrato</button></div>
+        </div>
+    </div>
+
+    <!-- Alta de Elección -->
+    <div class="card">
+        <h3> Registrar Nueva Elección (Claim Topic)</h3>
+        <label>Identificador numérico único (ID Topic):</label>
+        <input type="number" id="inputTopicId" placeholder="Ejemplo: 54">
+        <label>Descripción detallada de la Votación:</label>
+        <input type="text" id="inputTopicDesc" placeholder="Ejemplo: Elección Junta de Alumnos">
+        <button id="btnCreateElection" class="btn-admin">Dar de Alta en Identity Registry</button>
+    </div>
+
+    <!-- Alta de Candidatos e Interruptor -->
+    <div class="card">
+        <h3> Modificar Estado y Candidatos</h3>
+        <label>ID del Topic a gestionar:</label>
+        <input type="number" id="inputTargetTopic" placeholder="Ejemplo: 54">
+        <div class="row" style="margin-bottom: 12px;">
+            <div class="col"><button id="btnOpenStatus" class="btn-admin">Abrir Ventana Electoral</button></div>
+            <div class="col"><button id="btnCloseStatus" class="btn-danger">Cerrar Ventana Electoral</button></div>
+        </div>
+        <label>Nombre del Candidato a inscribir:</label>
+        <input type="text" id="inputCandidateName" placeholder="Ejemplo: Candidato D">
+        <button id="btnCreateCandidate" class="btn-admin">Inscribir Candidato en VotingApp</button>
+    </div>
+
+    
+    <div class="card">
+        <h3> Control de Admisión (Compliance ERC-3643)</h3>
+        <label>Dirección física de la Wallet (0x...):</label>
+        <input type="text" id="inputUserAddress" placeholder="0x...">
+        <label>ID del Proceso Electoral Autorizado:</label>
+        <input type="number" id="inputUserTopic" placeholder="Ejemplo: 54">
+        <div class="row">
+            <div class="col"><button id="btnAddVoter" class="btn-admin">Emitir Credencial (Add)</button></div>
+            <div class="col"><button id="btnRevokeVoter" class="btn-danger">Revocar Credencial (Revoke)</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- Librería Ethers.js v6 mediante CDN oficial -->
+<script src="ethers.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
