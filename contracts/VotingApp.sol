@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/utils/Pausable.sol"; //Estándar de pausa de Ope
  * El sistema de votación solo necesita validar que el usuario tenga una credencial válida.
  */
 interface IIdentityRegistry {
-    function isVerified(address usuario) external view returns (bool);
+    function isVerified(address user, uint256 topic) external view returns (bool);
     function isAllowedClaimTopic(uint256 claimTopic) external view returns (bool);
 }
 
@@ -64,11 +64,11 @@ contract VotingApp is Ownable, Pausable {
      */
     modifier isEligible(uint256 _claimTopic) {
         // 1. FILTRO DE IDENTIDAD (Inter-contract call): Llama al contrato externo de Registro
-        require(identityRegistry.isVerified(msg.sender), "Transaccion rechazada: Identidad no verificada");
+        require(identityRegistry.isVerified(msg.sender, _claimTopic), "Transaccion rechazada: Identidad no verificada");
         
         // 2. FILTRO DE REGLA DE NEGOCIO: Comprueba que el claim topic es permitido en el sistema
         require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Transaccion rechazada: Votacion no permitida");
-        
+
         // 3. FILTRO DE REGLA TEMPORAL: Comprueba si el periodo electoral sigue activo para este topic
         require(openVote[_claimTopic], "Transaccion rechazada: Periodo de votacion cerrado");
         
