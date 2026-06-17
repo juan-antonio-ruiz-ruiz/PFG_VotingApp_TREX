@@ -50,7 +50,7 @@ contract IdentityRegistry is Ownable {
     // Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
     constructor() Ownable(msg.sender) {
         // Ownable guardará internamente al dueño del contrato (administrador de la mesa electoral)
-        // Inicializamos con el topic por defecto 50
+        // Inicializamos con un topic por defecto: 50
         allowedClaimTopics.push(50);
         isClaimTopicAllowed[50] = true;
     }
@@ -118,6 +118,15 @@ contract IdentityRegistry is Ownable {
      */
     function getAllowedClaimTopics() external view returns (uint256[] memory) {
         return allowedClaimTopics;
+    }
+
+    /**
+     * @notice Verifica si un claim topic específico está permitido en el sistema.
+     * @param _claimTopic El identificador del tipo de credencial a validar.
+     * @return true si el claim topic está permitido, false en caso contrario.
+     */
+    function isAllowedClaimTopic(uint256 _claimTopic) external view returns (bool) {
+        return isClaimTopicAllowed[_claimTopic];
     }
 
     /**

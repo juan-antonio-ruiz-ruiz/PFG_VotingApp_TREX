@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/access/Ownable.sol"; //Estándar de propiedad de OpenZeppelin
+import "@openzeppelin/contracts/utils/Pausable.sol"; //Estándar de pausa de OpenZeppelin
 
 /**
  * @title IIdentityRegistry (Interfaz)
@@ -11,6 +12,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  */
 interface IIdentityRegistry {
     function isVerified(address usuario) external view returns (bool);
+    function isAllowedClaimTopic(uint256 claimTopic) external view returns (bool);
 }
 
 /**
@@ -18,9 +20,9 @@ interface IIdentityRegistry {
  * @author Juan Antonio Ruiz Ruiz (PFG - ETSI Informatica UNED)
  * @notice Controla la lógica de negocio del sistema de votación (alta de candidatos y recuento).
  * @dev Implementa el contrato "Modular Compliance" del estandard ERC-3643, aplicando filtros
- * de elegibilidad dinamicos antes de procesar cualquier voto en la blockchain.
+ * de elegibilidad dinamicos antes de procesar cualquier voto en la blockchain. Implementa control de ciclo de vida (Pausable).
  */
-contract VotingApp is Ownable {
+contract VotingApp is Ownable, Pausable {
     
     // --- VARIABLES DE INTERCONEXION Y ESTADO ---
 
@@ -64,10 +66,13 @@ contract VotingApp is Ownable {
         // 1. FILTRO DE IDENTIDAD (Inter-contract call): Llama al contrato externo de Registro
         require(identityRegistry.isVerified(msg.sender), "Transaccion rechazada: Identidad no verificada");
         
-        // 2. FILTRO DE REGLA TEMPORAL: Comprueba si el periodo electoral sigue activo para este topic
+        // 2. FILTRO DE REGLA DE NEGOCIO: Comprueba que el claim topic es permitido en el sistema
+        require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Transaccion rechazada: Votacion no permitida");
+        
+        // 3. FILTRO DE REGLA TEMPORAL: Comprueba si el periodo electoral sigue activo para este topic
         require(openVote[_claimTopic], "Transaccion rechazada: Periodo de votacion cerrado");
         
-        // 3. FILTRO DE RESTRICCION DE NEGOCIO: Evita el fraude del doble voto en esta elección
+        // 4. FILTRO DE RESTRICCION DE NEGOCIO: Evita el fraude del doble voto en esta elección
         require(!hasVoted[msg.sender][_claimTopic], "Transaccion rechazada: El usuario ya ha votado en esta eleccion");
         
         _; // Si los 3 requisitos son exitosos, se ejecuta la función addVote
@@ -85,6 +90,22 @@ contract VotingApp is Ownable {
         identityRegistry = IIdentityRegistry(_initialIdentityRegistry);
     }
 
+    // --- FUNCIONES DE CONTROL DE CICLO DE VIDA
+
+    /**
+     * @notice Detiene las votaciones ante una emergencia o migración.
+     */
+    function pauseVoting() external onlyOwner {
+        _pause(); // Función interna de OpenZeppelin Pausable
+    }
+
+    /**
+     * @notice Reanuda las votaciones detenidas.
+     */
+    function unpauseVoting() external onlyOwner {
+        _unpause(); // Función interna de OpenZeppelin Pausable
+    }
+
     // --- FUNCIONES DE ESCRITURA (MODIFICAN EL ESTADO / CONSUMEN GAS) ---
     
     // Enlazamos la interfaz con la direccion del contrato externo de identidad (si ha cambiado)
@@ -97,10 +118,14 @@ contract VotingApp is Ownable {
 
     /**
      * @notice Permite al administrador añadir nuevas opciones a una votación.
+     * @dev Cada candidato se asocia a un claim topic específico (tipo de credencial).
      * @param _claimTopic El tipo de credencial para la cual se registra el candidato.
      * @param _name Nombre del candidato.
      */
     function addCandidate(uint256 _claimTopic, string memory _name) external onlyOwner {
+        // Validamos que el claim topic es permitido en el sistema
+        require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Votacion no permitida");
+        
         // Insertamos el nuevo candidato al final del array de ese claim topic
         candidates[_claimTopic].push(Candidate({
             id: totalCandidates[_claimTopic],
@@ -116,10 +141,13 @@ contract VotingApp is Ownable {
     /**
      * @notice Registra el voto en la blockchain para una elección específica.
      * @dev Utiliza el modificador 'isEligible' para denegar el voto a votantes no autorizados.
+     * Añadido 'whenNotPaused' para congelar la función si se pausa el contrato.
      * @param _claimTopic El tipo de credencial de la elección en la que desea votar.
      * @param _candidateId El numero identificador del candidato elegido.
      */
-    function addVote(uint256 _claimTopic, uint256 _candidateId) external isEligible(_claimTopic) {
+    function addVote(uint256 _claimTopic, uint256 _candidateId) external whenNotPaused isEligible(_claimTopic) {
+        require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Votacion no permitida");
+
         //Garantiza que el ID enviado existe dentro del rango de candidatos de este claim topic
         require(_candidateId < totalCandidates[_claimTopic], "El candidato elegido no existe en esta eleccion");
 
@@ -139,6 +167,9 @@ contract VotingApp is Ownable {
      * @param _status true para abrir, false para cerrar.
      */
     function changeVotingStatus(uint256 _claimTopic, bool _status) external onlyOwner {
+        // Validamos que el claim topic es permitido en el sistema
+        require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Votacion no permitida");
+        
         openVote[_claimTopic] = _status;
         emit VotingStatusChanged(_claimTopic, _status);
     }
