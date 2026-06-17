@@ -5,7 +5,7 @@
 [![OpenZeppelin](https://shields.io)](https://openzeppelin.com)
 [![Ethers.js](https://shields.io)](https://ethers.org)
 
-Proyecto Final de Grado (PFG) desarrollado para la **ETSI Informática de la UNED**. Se trata de un sistema de votación electrónica múltiple, confidencial e inmutable que implementa un motor de **Modular Compliance** inspirado en el estándar de seguridad industrial **ERC-3643 (Protocolo T-REX)** para la gestión y validación de identidades soberanas (*on-chain*).
+Proyecto Final de Grado (PFG) desarrollado para la **ETSI Informática de la UNED**. Se trata de un sistema de votación electrónica múltiple, confidencial e inmutable que implementa un motor de **Modular Compliance** inspirado en el estándar de seguridad industrial **ERC-3643 (Protocolo T-REX)** para la gestión y validación de identidades (*on-chain*).
 
 ---
 
@@ -59,31 +59,31 @@ npx hardhat compile
 npx hardhat test --coverage
 ```
 
-### 4. Levantamiento del Entorno Local Interactiva
-En una terminal secundaria, arranca la blockchain simulada:
+### 4. Levantamiento del Entorno Local Interactivo
+En una terminal secundaria, arrancamos la blockchain simulada:
 ```bash
 npx hardhat node
 ```
 
-En tu terminal principal, despliega los contratos mediante **Hardhat Ignition**:
+En tu terminal principal, desplegamos los contratos mediante **Hardhat Ignition**:
 ```bash
 npx hardhat ignition deploy ignition/modules/VotingSystem.ts --network localhost --reset
 ```
 
-### 5. Inyección Automatizada de Datos (3 Elecciones de Prueba)
-Asegúrate de copiar las direcciones generadas en el paso anterior dentro de tu archivo `deployed_addresses.json` y ejecuta el script de carga local en el puerto persistente:
+### 5. Inyección Automatizada de Datos de Prueba
 ```bash
 npx hardhat run scripts/setup-local.ts --network localhost
-```
 
-### 6. Lanzar la Interfaz Gráfica (GUI)
-Haz clic derecho sobre el archivo `frontend/index.html` y selecciónalo con la extensión **Live Server** de VS Code para interactuar con la dApp desde tu navegador conectando MetaMask en la red `Hardhat Localhost`.
+npx hardhat run scripts/setup-sepolia.ts --network sepolia
+```
 
 ---
 
 ## 🌐 Despliegue en Producción (GitHub Pages)
 
 La dApp interactiva se encuentra desplegada de forma pública e independiente en la nube a través de **GitHub Pages**, conectada directamente a los contratos inteligentes validados y verificados en la red de pruebas pública **Ethereum Sepolia**. 
+
+https://juan-antonio-ruiz-ruiz.github.io/PFG_VotingApp_TREX/
 
 La interfaz implementa un **sistema de doble rol dinámico**: lee la firma digital del usuario y despliega las pestañas de administración exclusivas si la dirección coincide con el *Owner* (Mesa Electoral), bloqueando de raíz cualquier intento de interacción fraudulenta externa.
 
