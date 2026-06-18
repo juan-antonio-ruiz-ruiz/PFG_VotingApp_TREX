@@ -1,122 +1,241 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PFG - Sistema Multi-Elección ERC-3643</title>
-<style>
-body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; max-width: 650px; margin: 40px auto; padding: 20px; line-height: 1.6; background-color: #f8f9fa; color: #333; }
-.card { background: white; border: 1px solid #e3e6f0; padding: 20px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-h2, h3 { margin-top: 0; color: #4e73df; }
-button { background-color: #4e73df; color: white; border: none; padding: 12px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; width: 100%; transition: background 0.3s; margin-bottom: 10px; }
-button:hover { background-color: #2e59d9; }
-button:disabled { background-color: #cccccc; cursor: not-allowed; }
-input, select { width: 100%; padding: 10px; margin: 8px 0 16px 0; border: 1px solid #d1d3e2; border-radius: 6px; box-sizing: border-box; }
-.status { font-weight: bold; padding: 8px; border-radius: 4px; text-align: center; margin-top: 10px; }
-.open { background-color: #d4edda; color: #155724; }
-.closed { background-color: #f8d7da; color: #721c24; }
-/* Estilos para el sistema modular de administración 🌟 */
-.btn-admin { background-color: #f6c23e; color: #333; }
-.btn-admin:hover { background-color: #dfa81e; }
-.btn-danger { background-color: #e74a3b; color: white; }
-.btn-danger:hover { background-color: #be2617; }
-.nav-tabs { display: flex; margin-bottom: 20px; border-bottom: 2px solid #e3e6f0; }
-.tab { padding: 10px 20px; cursor: pointer; font-weight: bold; color: #4e73df; border: 1px solid transparent; border-bottom: none; border-radius: 6px 6px 0 0; }
-.tab.active { background-color: white; border-color: #e3e6f0; margin-bottom: -2px; color: #333; }
-.tab-content { display: none; }
-.tab-content.active { display: block; }
-.row { display: flex; gap: 15px; }
-.col { flex: 1; }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema de votación T-REX</title>
+    <style>
+        :root {
+            --primary: #4e73df;
+            --primary-dark: #2e59d9;
+            --success: #1cc88a;
+            --success-dark: #17a673;
+            --danger: #e74a3b;
+            --danger-dark: #be2617;
+            --warning: #f6c23e;
+            --warning-dark: #dfa81e;
+            --dark: #5a5c69;
+            --light: #f8f9fa;
+            --gray-border: #d1d3e2;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0;
+            padding: 0;
+            background-color: var(--light); 
+            color: #333; 
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        header {
+            background-color: white;
+            border-bottom: 3px solid var(--primary);
+            padding: 15px 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .header-container {
+            max-width: 800px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .logo-jpg {
+            width: 85px;          /* Ajusta el ancho a tu gusto */
+            height: auto;         /* Mantiene la proporción original sin deformar */
+            border-radius: 4px;   /* Suaviza las esquinas de la imagen */
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); /* Añade un sutil relieve visual */
+        }
+
+
+        .header-text h1 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: var(--primary);
+        }
+
+        .header-text p {
+            margin: 2px 0 0 0;
+            font-size: 0.85rem;
+            color: var(--dark);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        main {
+            flex: 1;
+            max-width: 700px;
+            width: 100%;
+            margin: 30px auto;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+
+        .card { 
+            background: white; 
+            border: 1px solid #e3e6f0; 
+            padding: 24px; 
+            border-radius: 12px; 
+            margin-bottom: 25px; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03); 
+        }
+
+        h3 { margin-top: 0; color: var(--primary); font-size: 1.15rem; border-bottom: 1px solid #eaecf2; padding-bottom: 8px; }
+        
+        button { 
+            color: white; 
+            border: none; 
+            padding: 12px 20px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-weight: bold; 
+            width: 100%; 
+            transition: background 0.3s; 
+            margin-bottom: 10px; 
+            font-size: 0.95rem;
+        }
+
+        #btnConnect { background-color: var(--primary); }
+        #btnConnect:hover { background-color: var(--primary-dark); }
+        #btnLoadElection { background-color: var(--primary); }
+        #btnLoadElection:hover { background-color: var(--primary-dark); }
+        #btnVote { background-color: var(--success); }
+        #btnVote:hover { background-color: var(--success-dark); }
+        
+        button:disabled { background-color: #cccccc !important; cursor: not-allowed; }
+        
+        .btn-admin { background-color: var(--warning); color: #333; }
+        .btn-admin:hover { background-color: var(--warning-dark); }
+        .btn-danger { background-color: var(--danger); color: white; }
+        .btn-danger:hover { background-color: var(--danger-dark); }
+
+        input, select { width: 100%; padding: 11px; margin: 8px 0 16px 0; border: 1px solid var(--gray-border); border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
+        input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(78,115,223,0.15); }
+        
+        .status { font-weight: bold; padding: 10px; border-radius: 6px; text-align: center; margin-top: 12px; font-size: 0.9rem; }
+        .open { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .closed { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        .nav-tabs { display: flex; margin-bottom: 25px; border-bottom: 2px solid #e3e6f0; gap: 5px; }
+        .tab { padding: 12px 24px; cursor: pointer; font-weight: bold; color: var(--primary); border: 1px solid transparent; border-bottom: none; border-radius: 8px 8px 0 0; transition: all 0.2s; }
+        .tab:hover { background-color: #eaeaea; }
+        .tab.active { background-color: white; border-color: #e3e6f0; margin-bottom: -2px; color: #333; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .row { display: flex; gap: 15px; }
+        .col { flex: 1; }
+
+        footer {
+            background-color: white;
+            border-top: 1px solid #e3e6f0;
+            padding: 20px;
+            text-align: center;
+            font-size: 0.85rem;
+            color: var(--dark);
+            box-shadow: 0 -2px 4px rgba(0,0,0,0.02);
+        }
+    </style>
 </head>
 <body>
-<h2> Sistema de Votación Múltiple Descentralizado con Protocolo T-REX</h2>
-<p>Ecosistema de Gestión de Identidad ERC-3643 / ONCHAINID</p>
 
-<!-- Bloque 1: Conexión Web3 -->
-<div class="card">
-<h3> Acceso con tu Wallet de MetaMask</h3>
-<button id="btnConnect">Conectar Wallet</button>
-<p id="lblAccount" style="word-break: break-all; margin-top: 12px; color: #6e707e;">Billetera: No conectada</p>
-</div>
-
-<!-- Selector de Vistas Exclusivo para el Administrador -->
-<div class="nav-tabs" id="adminNavbar" style="display: none;">
-    <div class="tab active" id="tabVoterView">Portal Votante</div>
-    <div class="tab" id="tabAdminView">Panel de Control (Admin)</div>
-</div>
-
-<!-- ================= SECCIÓN VOTA: PORTAL VOTANTE ================= -->
-<div id="panelVoterContainer" class="tab-content active">
-    <!-- Bloque 2: Selección del Contexto Electoral -->
-    <div class="card">
-    <h3> Selección de Votación</h3>
-    <label for="selectElection">Selecciona una Elección:</label>
-    <select id="selectElection"></select>
-    <button id="btnLoadElection">Cargar Datos de la Blockchain</button>
-    <div id="electionStatus" class="status" style="display: none;"></div>
-    </div>
-
-    <!-- Bloque 3: Panel de Escrutinio e Interacción -->
-    <div class="card" id="panelVoting" style="display: none;">
-    <h3> Opciones Disponibles</h3>
-    <label for="selectCandidates">Selecciona tu candidato:</label>
-    <select id="selectCandidates"></select>
-    <button id="btnVote" disabled>Emitir Voto Inmutable</button>
-    </div>
-</div>
-
-<!-- ================= SECCIÓN GESTIÓN: PANEL DE CONTROL ADMINISTRATIVO 🌟 ================= -->
-<div id="panelAdminContainer" class="tab-content">
-    <!-- Parada de Emergencia -->
-    <div class="card">
-        <h3> Control de Ciclo de Vida (Pausable OpenZeppelin)</h3>
-        <div class="row">
-            <div class="col"><button id="btnPause" class="btn-danger">Pausar Contrato</button></div>
-            <div class="col"><button id="btnUnpause">Reanudar Contrato</button></div>
+    <header>
+        <div class="header-container">
+            <img src="logoUNED.jpg" alt="Logo UNED PFG" class="logo-jpg">
+            <div class="header-text">
+                <h1>Plataforma Electoral Descentralizada</h1>
+                <p>Ecosistema Modular Compliance ERC-3643 / Protocolo T-REX</p>
+            </div>
         </div>
-    </div>
+    </header>
 
-    <!-- Alta de Elección -->
-    <div class="card">
-        <h3> Registrar Nueva Elección (Claim Topic)</h3>
-        <label>Identificador numérico único (ID Topic):</label>
-        <input type="number" id="inputTopicId" placeholder="Ejemplo: 54">
-        <label>Descripción detallada de la Votación:</label>
-        <input type="text" id="inputTopicDesc" placeholder="Ejemplo: Elección Junta de Alumnos">
-        <button id="btnCreateElection" class="btn-admin">Dar de Alta en Identity Registry</button>
-    </div>
-
-    <!-- Alta de Candidatos e Interruptor -->
-    <div class="card">
-        <h3> Modificar Estado y Candidatos</h3>
-        <label>ID del Topic a gestionar:</label>
-        <input type="number" id="inputTargetTopic" placeholder="Ejemplo: 54">
-        <div class="row" style="margin-bottom: 12px;">
-            <div class="col"><button id="btnOpenStatus" class="btn-admin">Abrir Ventana Electoral</button></div>
-            <div class="col"><button id="btnCloseStatus" class="btn-danger">Cerrar Ventana Electoral</button></div>
+    <main>
+        <div class="card">
+            <h3>🔐 Autenticación Criptográfica</h3>
+            <button id="btnConnect">Conectar Billetera MetaMask</button>
+            <p id="lblAccount" style="word-break: break-all; margin-top: 12px; color: #6e707e; font-family: monospace;">Billetera: No conectada</p>
         </div>
-        <label>Nombre del Candidato a inscribir:</label>
-        <input type="text" id="inputCandidateName" placeholder="Ejemplo: Candidato D">
-        <button id="btnCreateCandidate" class="btn-admin">Inscribir Candidato en VotingApp</button>
-    </div>
-
-    
-    <div class="card">
-        <h3> Control de Admisión (Compliance ERC-3643)</h3>
-        <label>Dirección física de la Wallet (0x...):</label>
-        <input type="text" id="inputUserAddress" placeholder="0x...">
-        <label>ID del Proceso Electoral Autorizado:</label>
-        <input type="number" id="inputUserTopic" placeholder="Ejemplo: 54">
-        <div class="row">
-            <div class="col"><button id="btnAddVoter" class="btn-admin">Emitir Credencial (Add)</button></div>
-            <div class="col"><button id="btnRevokeVoter" class="btn-danger">Revocar Credencial (Revoke)</button></div>
+        
+        <div class="nav-tabs" id="adminNavbar" style="display: none;">
+            <div class="tab active" id="tabVoterView">Portal del Votante</div>
+            <div class="tab" id="tabAdminView">Panel de Control (Admin)</div>
         </div>
-    </div>
-</div>
 
-<!-- Librería Ethers.js v6 mediante CDN oficial -->
-<script src="ethers.umd.min.js"></script>
-<script src="app.js"></script>
+        <!-- ================= SECCIÓN VOTA: PORTAL VOTANTE ================= -->
+        <div id="panelVoterContainer" class="tab-content active">
+            <div class="card">
+                <h3>📋 Selección de Votación</h3>
+                <label for="selectElection">Selecciona una Elección disponible:</label>
+                <select id="selectElection"></select>
+                <button id="btnLoadElection">Cargar Datos de la Blockchain</button>
+                <div id="electionStatus" class="status" style="display: none;"></div>
+            </div>
+
+            <div class="card" id="panelVoting" style="display: none;">
+                <h3>📊 Escrutinio y Opciones Disponibles</h3>
+                <label for="selectCandidates">Selecciona tu opción o candidato:</label>
+                <select id="selectCandidates"></select>
+                <button id="btnVote" disabled>Emitir Voto Inmutable</button>
+            </div>
+        </div>
+
+        <!-- ================= SECCIÓN GESTIÓN: PANEL DE CONTROL ADMINISTRATIVO ================= -->
+        <div id="panelAdminContainer" class="tab-content">
+            <div class="card">
+                <h3>🚨 Control de Ciclo de Vida (Pausable OpenZeppelin)</h3>
+                <div class="row">
+                    <div class="col"><button id="btnPause" class="btn-danger">Pausar Contrato</button></div>
+                    <div class="col"><button id="btnUnpause">Reanudar Contrato</button></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <h3>➕ Registrar Nueva Elección (Claim Topic)</h3>
+                <label>Identificador (Topic ID):</label>
+                <input type="number" id="inputTopicId" placeholder="Ejemplo: 54">
+                <label>Descripción de la Votación:</label>
+                <input type="text" id="inputTopicDesc" placeholder="Ejemplo: Elección Junta de Alumnos">
+                <button id="btnCreateElection" class="btn-admin">Dar de Alta en el Registro de Identidad</button>
+            </div>
+
+            <div class="card">
+                <h3>⚙️ Modificar Estado de la Votación y Candidatos</h3>
+                <label>ID del Topic a gestionar:</label>
+                <input type="number" id="inputTargetTopic" placeholder="Ejemplo: 54">
+                <div class="row" style="margin-bottom: 12px;">
+                    <div class="col"><button id="btnOpenStatus" class="btn-admin">Abrir Elección</button></div>
+                    <div class="col"><button id="btnCloseStatus" class="btn-danger">Cerrar Elección</button></div>
+                </div>
+                <label>Nombre del Candidato a inscribir:</label>
+                <input type="text" id="inputCandidateName" placeholder="Ejemplo: Candidato D">
+                <button id="btnCreateCandidate" class="btn-admin">Inscribir Candidato</button>
+            </div>
+
+            <div class="card">
+                <h3>🆔 Control de Admisión (Compliance Layer)</h3>
+                <label>Dirección física de la billetera (0x...):</label>
+                <input type="text" id="inputUserAddress" placeholder="0x...">
+                <label>ID del Proceso Electoral Autorizado:</label>
+                <input type="number" id="inputUserTopic" placeholder="Ejemplo: 54">
+                <div class="row">
+                    <div class="col"><button id="btnAddVoter" class="btn-admin">Emitir Credencial (AddVoter)</button></div>
+                    <div class="col"><button id="btnRevokeVoter" class="btn-danger">Revocar Credencial (RevokeVoter)</button></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p><strong>Trabajo Fin de Grado (PFG)</strong> - Escuela Técnica Superior de Ingenieros Informáticos (ETSI) - UNED</p>
+        <p style="font-size: 0.75rem; margin-top: 5px; color: #a0a2b1;">Desarrollado por Juan Antonio Ruiz Ruiz | © 2026 Entorno Web3 Decentralizado - Sepolia</p>
+    </footer>
+
+    <script src="ethers.umd.min.js"></script>
+    <script src="app.js"></script>
 </body>
 </html>
+

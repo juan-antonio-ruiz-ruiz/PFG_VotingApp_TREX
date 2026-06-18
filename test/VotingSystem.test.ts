@@ -61,18 +61,18 @@ identityRegistry.connect(admin).addClaimTopic(TOPIC_A, "Duplicado")
 ).to.be.revertedWith("La votacion ya existe");
 });
 
-it("Validación 1B: Debería rechazar descripciones vacías al crear un Topic 🌟", async function () {
+it("Validación 1B: Debería rechazar descripciones vacías al crear un Topic", async function () {
 await expect(
 identityRegistry.connect(admin).addClaimTopic(70n, "")
 ).to.be.revertedWith("La descripcion no puede estar vacia");
 });
 
-it("Validación 1C: Debería recuperar descripciones on-chain para el Frontend 🌟", async function () {
+it("Validación 1C: Debería recuperar descripciones on-chain para el Frontend", async function () {
 const description = await identityRegistry.getClaimTopicDescription(TOPIC_B);
 expect(description).to.equal("Eleccion de Rectorado");
 });
 
-it("Validación 1D: Debería revertir si se consulta una descripción de un Topic inexistente 🌟", async function () {
+it("Validación 1D: Debería revertir si se consulta una descripción de un Topic inexistente", async function () {
 await expect(
 identityRegistry.getClaimTopicDescription(999n)
 ).to.be.revertedWith("El claim topic no existe");
