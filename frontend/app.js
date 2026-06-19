@@ -29,7 +29,7 @@ let identityRegistryContract;
 let currentTopic;
 let allowedTopics = [];
 
-// Elementos de la interfaz de usuario originales
+// Elementos de la interfaz de usuario
 const btnConnect = document.getElementById("btnConnect");
 const lblAccount = document.getElementById("lblAccount");
 const selectElection = document.getElementById("selectElection");
@@ -76,7 +76,7 @@ alert("MetaMask no detectado. Instala la extensión para operar.");
 }
 });
 
-// Función para comprobar si la wallet conectada es el Owner del ecosistema
+// Función para comprobar si la wallet conectada es el Owner del sistema
 async function verifyAdminRole(userAddress) {
     try {
         const contractOwner = await identityRegistryContract.owner();
@@ -209,11 +209,11 @@ btnLoadElection.click();
 async function sendAdminTx(contractMethodPromise, logMessage) {
     try {
         electionStatus.style.display = "block";
-        electionStatus.innerText = " Enviando transacción criptográfica al nodo local...";
+        electionStatus.innerText = " Enviando transacción al nodo local...";
         const tx = await contractMethodPromise;
         electionStatus.innerText = " Minando operación en el bloque local...";
         await tx.wait();
-        alert(`✓ Operación confirmada: ${logMessage}`);
+        alert(`Operación confirmada: ${logMessage}`);
         await loadAvailableElections();
     } catch (error) {
         console.error("Fallo en la operación:", error);
@@ -244,9 +244,20 @@ document.getElementById("btnCloseStatus").addEventListener("click", () => {
 
 // D. Registrar Candidato de forma Interactiva
 document.getElementById("btnCreateCandidate").addEventListener("click", () => {
-    const topicId = BigInt(document.getElementById("inputTargetTopic").value);
-    const candidateName = document.getElementById("inputCandidateName").value;
-    sendAdminTx(votingAppAddress, votingContract.addCandidate(topicId, candidateName), `Candidato "${candidateName}" inscrito.`);
+    const topicElem = document.getElementById("inputTargetTopic");
+    const nameElem = document.getElementById("inputCandidateName");
+    const topicVal = topicElem.value;
+    const candidateName = nameElem.value ? nameElem.value.trim() : "";
+    if (!topicVal) {
+        alert("Introduce el ID del Topic a gestionar.");
+        return;
+    }
+    if (!candidateName) {
+        alert("Introduce el nombre del candidato.");
+        return;
+    }
+    const topicId = BigInt(topicVal);
+    sendAdminTx(votingContract.addCandidate(topicId, candidateName), `Candidato "${candidateName}" inscrito.`);
 });
 
 // E. Validar y Revocar Billeteras (Compliance Layer)
