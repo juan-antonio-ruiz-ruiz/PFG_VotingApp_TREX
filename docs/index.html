@@ -117,6 +117,24 @@
         input, select, textarea { width: 100%; padding: 11px; margin: 8px 0 16px 0; border: 1px solid var(--gray-border); border-radius: 6px; box-sizing: border-box; font-size: 0.95rem; }
         input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 2px rgba(78,115,223,0.15); }
         textarea { resize: vertical; font-family: monospace; }
+
+        .drop-zone {
+            border: 2px dashed var(--gray-border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            color: var(--dark);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+            margin: 8px 0 10px 0;
+            background: #fafafa;
+        }
+        .drop-zone:hover, .drop-zone.drag-over {
+            border-color: var(--primary);
+            background: #eef2ff;
+        }
+        .drop-zone input[type="file"] { display: none; }
         
         .status { font-weight: bold; padding: 10px; border-radius: 6px; text-align: center; margin-top: 12px; font-size: 0.9rem; }
         .open { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
@@ -231,8 +249,14 @@
             <div class="card">
                 <h3>📥 Importar Votantes desde CSV</h3>
                 <p style="margin-top:0; color: var(--dark); font-size: 0.88rem;">Formato: <code>address,claimTopicID</code> (una entrada por línea). Se acepta con o sin fila de cabecera.</p>
-                <label>Contenido CSV:</label>
-                <textarea id="csvInput" rows="6" placeholder="address,claimTopicID&#10;0xAbC123...,54&#10;0xDeF456...,56"></textarea>
+
+                <div class="drop-zone" id="csvDropZone">
+                    <input type="file" id="csvFileInput" accept=".csv,.txt">
+                    📂 Arrastra un fichero CSV aquí o <strong style="color:var(--primary); cursor:pointer;" onclick="document.getElementById('csvFileInput').click()">selecciona un archivo</strong>
+                </div>
+
+                <label>O pega el contenido directamente:</label>
+                <textarea id="csvInput" rows="5" placeholder="address,claimTopicID&#10;0xAbC123...,54&#10;0xDeF456...,56"></textarea>
                 <button id="btnImportCSV" class="btn-admin">Importar Votantes desde CSV</button>
                 <div id="csvResult" style="display:none; margin-top:4px; padding: 12px; border-radius: 6px; background: #f8f9fa; border: 1px solid var(--gray-border); font-size: 0.88rem;"></div>
             </div>

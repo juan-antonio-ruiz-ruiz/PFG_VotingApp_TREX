@@ -354,6 +354,45 @@ document.getElementById("btnRevokeVoter").addEventListener("click", () => {
 });
 
 // F. Importar Votantes desde CSV (transacción única en lote)
+
+// --- Utilidad: cargar texto en el textarea desde un File ---
+function loadFileIntoTextarea(file) {
+    if (!file) return;
+    if (!file.name.match(/\.(csv|txt)$/i)) {
+        alert('Solo se aceptan ficheros .csv o .txt');
+        return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+        document.getElementById('csvInput').value = e.target.result;
+    };
+    reader.readAsText(file);
+}
+
+// --- Drop zone: click abre el selector de archivos ---
+document.getElementById('csvDropZone').addEventListener('click', (e) => {
+    if (e.target.tagName !== 'STRONG') {
+        document.getElementById('csvFileInput').click();
+    }
+});
+
+// --- Drop zone: drag & drop ---
+const dropZone = document.getElementById('csvDropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    loadFileIntoTextarea(file);
+});
+
+// --- Input file: selección mediante diálogo ---
+document.getElementById('csvFileInput').addEventListener('change', e => {
+    loadFileIntoTextarea(e.target.files[0]);
+    e.target.value = ''; // reset para permitir reseleccionar el mismo fichero
+});
+
 document.getElementById("btnImportCSV").addEventListener("click", async () => {
     const rawText = document.getElementById("csvInput").value.trim();
     if (!rawText) { alert("Introduce el contenido CSV antes de importar."); return; }
