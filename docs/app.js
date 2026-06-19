@@ -243,7 +243,7 @@ document.getElementById("btnCloseStatus").addEventListener("click", () => {
 });
 
 // D. Registrar Candidato de forma Interactiva
-document.getElementById("btnCreateCandidate").addEventListener("click", () => {
+document.getElementById("btnCreateCandidate").addEventListener("click", async () => {
     const topicElem = document.getElementById("inputTargetTopic");
     const nameElem = document.getElementById("inputCandidateName");
     const topicVal = topicElem.value;
@@ -257,6 +257,23 @@ document.getElementById("btnCreateCandidate").addEventListener("click", () => {
         return;
     }
     const topicId = BigInt(topicVal);
+
+    // Comprobar duplicados por nombre (case-insensitive) en la misma elección
+    try {
+        const totalCand = await votingContract.totalCandidates(topicId);
+        for (let i = 0n; i < totalCand; i++) {
+            const [existingName] = await votingContract.getCandidate(topicId, i);
+            if (existingName && existingName.toString().trim().toLowerCase() === candidateName.toLowerCase()) {
+                alert(`Ya existe un candidato con el nombre "${candidateName}" en la elección ${topicId}.`);
+                return;
+            }
+        }
+    } catch (err) {
+        console.error("Error comprobando candidatos existentes:", err);
+        alert("No se pudo verificar duplicados. Intenta de nuevo más tarde.");
+        return;
+    }
+
     sendAdminTx(votingContract.addCandidate(topicId, candidateName), `Candidato "${candidateName}" inscrito.`);
 });
 
