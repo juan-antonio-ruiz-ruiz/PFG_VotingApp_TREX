@@ -180,6 +180,21 @@ alert(" Error al consultar la elección. Verifica la conexión o intenta nuevame
 // 3. Ejecución de la transacción de Voto (Mutación con Gas)
 btnVote.addEventListener("click", async () => {
 const selectedId = BigInt(selectCandidates.value);
+
+// Extraer nombres legibles del DOM (ya cargados al pulsar "Cargar Datos")
+const candidateOptionText = selectCandidates.options[selectCandidates.selectedIndex].innerText;
+const candidateName = candidateOptionText.replace(/\s*\(\d+ votos\)$/, "").trim();
+const electionOptionText = selectElection.options[selectElection.selectedIndex].innerText;
+const electionName = electionOptionText.replace(/\s*\(ID:\s*\d+\)$/, "").trim();
+
+const confirmed = window.confirm(
+    `¿Confirmas tu voto?\n\n` +
+    `Elección:  ${electionName}\n` +
+    `Candidato: ${candidateName}\n\n` +
+    `Esta acción es irreversible una vez firmada en la blockchain.`
+);
+if (!confirmed) return;
+
 try {
 btnVote.disabled = true;
 electionStatus.innerText = " Confirmando transacción en MetaMask y procesando bloque...";
