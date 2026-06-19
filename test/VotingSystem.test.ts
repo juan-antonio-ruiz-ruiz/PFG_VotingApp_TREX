@@ -208,4 +208,50 @@ const nuevaDireccionIdentidad = "0x0000000000000000000000000000000000000123";
 await votingApp.connect(admin).setIdentityRegistry(nuevaDireccionIdentidad);
 expect(await votingApp.identityRegistry()).to.equal(nuevaDireccionIdentidad);
 });
+
+// =========================================================================
+// BLOQUE 3: PRUEBAS DE IMPORTACIÓN EN LOTE (batchAddVoters)
+// =========================================================================
+
+it("Validación 15: batchAddVoters debería registrar múltiples votantes en una sola transacción", async function () {
+  await identityRegistry.connect(admin).batchAddVoters(
+    [v1, v2, v3],
+    [TOPIC_A, TOPIC_A, TOPIC_B]
+  );
+  expect(await identityRegistry.isVerified(v1, TOPIC_A)).to.be.true;
+  expect(await identityRegistry.isVerified(v2, TOPIC_A)).to.be.true;
+  expect(await identityRegistry.isVerified(v3, TOPIC_B)).to.be.true;
+  // Votante no incluido no debe quedar registrado
+  expect(await identityRegistry.isVerified(v4, TOPIC_A)).to.be.false;
+});
+
+it("Validación 16: batchAddVoters debería omitir entradas inválidas y procesar las válidas emitiendo BatchEntrySkipped", async function () {
+  const TOPIC_INVALIDO = 999n;
+
+  const tx = await identityRegistry.connect(admin).batchAddVoters(
+    [ethers.ZeroAddress, v2, v3],
+    [TOPIC_A,            TOPIC_INVALIDO, TOPIC_B]
+  );
+  const receipt = await tx.wait();
+
+  // Parsear eventos BatchEntrySkipped del receipt
+  const skippedEvents = receipt.logs
+    .map((log: any) => { try { return identityRegistry.interface.parseLog(log); } catch { return null; } })
+    .filter((e: any) => e !== null && e.name === "BatchEntrySkipped");
+
+  expect(skippedEvents).to.have.length(2);
+  expect(skippedEvents[0].args.reason).to.equal("Direccion invalida");
+  expect(skippedEvents[1].args.reason).to.equal("Votacion no permitida");
+
+  // v3 con topic válido SÍ debe quedar registrado
+  expect(await identityRegistry.isVerified(v3, TOPIC_B)).to.be.true;
+  // Entradas omitidas NO deben quedar registradas
+  expect(await identityRegistry.isVerified(v2, TOPIC_INVALIDO)).to.be.false;
+});
+
+it("Validación 17: batchAddVoters debería rechazar llamadas de cuentas no propietarias", async function () {
+  await expect(
+    identityRegistry.connect(attacker).batchAddVoters([v1], [TOPIC_A])
+  ).to.be.revertedWithCustomError(identityRegistry, "OwnableUnauthorizedAccount");
+});
 });

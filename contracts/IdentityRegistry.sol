@@ -45,6 +45,8 @@ contract IdentityRegistry is Ownable {
     event CredentialRevoked(address indexed user, uint256 claimTopic);
     // Se emite cuando se agrega un nuevo tipo de credencial permitido
     event ClaimTopicAdded(uint256 indexed claimTopic, string description);
+    // Se emite por cada entrada inválida omitida durante una importación en lote
+    event BatchEntrySkipped(address indexed user, uint256 indexed claimTopic, string reason);
 
 
     // --- CONSTRUCTOR ---
@@ -99,6 +101,39 @@ contract IdentityRegistry is Ownable {
 
         // Emitimos el evento para que los servidores Web3 o el frontend capturen el cambio al instante
         emit CredentialAuthorized(_user, owner(), _claimTopic);
+    }
+
+    /**
+     * @notice Registra múltiples votantes en una sola transacción, minimizando el coste de Gas.
+     * @dev Cada entrada del array _users se empareja con la entrada _claimTopics del mismo índice.
+     * Las entradas inválidas se omiten emitiendo un evento BatchEntrySkipped; el resto se procesa.
+     * La transacción NO revierte por entradas individuales inválidas.
+     * @param _users Array de direcciones de billetera a autorizar.
+     * @param _claimTopics Array de identificadores de credencial (mismo orden que _users).
+     */
+    function batchAddVoters(address[] calldata _users, uint256[] calldata _claimTopics) external onlyOwner {
+        require(_users.length == _claimTopics.length, "Los arrays deben tener el mismo tamano");
+        require(_users.length > 0, "El array no puede estar vacio");
+
+        for (uint256 i = 0; i < _users.length; i++) {
+            if (_users[i] == address(0)) {
+                emit BatchEntrySkipped(_users[i], _claimTopics[i], "Direccion invalida");
+                continue;
+            }
+            if (!isClaimTopicAllowed[_claimTopics[i]]) {
+                emit BatchEntrySkipped(_users[i], _claimTopics[i], "Votacion no permitida");
+                continue;
+            }
+
+            _credentialRegistry[_users[i]][_claimTopics[i]] = Credential({
+                claimTopic: _claimTopics[i],
+                issuer: owner(),
+                signature: bytes(""),
+                valid: true
+            });
+
+            emit CredentialAuthorized(_users[i], owner(), _claimTopics[i]);
+        }
     }
 
     /**

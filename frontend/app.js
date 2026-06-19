@@ -10,7 +10,8 @@ const votingAppABI = [
 "function addCandidate(uint256 _claimTopic, string memory _name) external",
 "function changeVotingStatus(uint256 _claimTopic, bool _status) external",
 "function pauseVoting() external",
-"function unpauseVoting() external"
+"function unpauseVoting() external",
+"function hasVoted(address, uint256) external view returns (bool)"
 ];
 
 const identityRegistryABI = [
@@ -19,6 +20,8 @@ const identityRegistryABI = [
 "function owner() external view returns (address)", // Para validar el rol admin de forma segura
 "function addClaimTopic(uint256 _claimTopic, string memory _description) external",
 "function addVoter(address _user, uint256 _claimTopic, bytes memory _signature) external",
+"function batchAddVoters(address[] calldata _users, uint256[] calldata _claimTopics) external",
+"event BatchEntrySkipped(address indexed user, uint256 indexed claimTopic, string reason)",
 "function revokeVoter(address _user, uint256 _claimTopic) external"
 ];
 
@@ -129,10 +132,23 @@ console.log(`No se pudo obtener descripción para topic ${topic}:`, err);
 if (allowedTopics.length > 0) {
 selectElection.value = allowedTopics[0].toString();
 }
+updateNextTopicId();
 } catch (error) {
 console.error("Error al cargar elecciones:", error);
 alert("Error al cargar las elecciones disponibles.");
 }
+}
+
+// Calcula el siguiente ID autoincremental para una nueva elección
+function updateNextTopicId() {
+    const inputTopicId = document.getElementById("inputTopicId");
+    if (!inputTopicId) return;
+    if (allowedTopics.length === 0) {
+        inputTopicId.value = 1;
+        return;
+    }
+    const maxId = allowedTopics.reduce((max, t) => (t > max ? t : max), allowedTopics[0]);
+    inputTopicId.value = (maxId + 1n).toString();
 }
 
 // 2. Consulta dinámica según el Claim Topic
@@ -147,7 +163,12 @@ try {
 const isOpened = await votingContract.openVote(currentTopic);
 const totalCand = await votingContract.totalCandidates(currentTopic);
 if (totalCand === 0n) {
-alert(` Error: La elección con Id ${currentTopic} no existe. Por favor, verifica el número de elección.`);
+const isRegistered = allowedTopics.some(t => t.toString() === currentTopic.toString());
+if (isRegistered) {
+alert(`⚠️ La elección con Id ${currentTopic} existe pero aún no tiene candidatos registrados.`);
+} else {
+alert(`❌ Error: La elección con Id ${currentTopic} no existe en el sistema.`);
+}
 selectCandidates.innerHTML = "";
 panelVoting.style.display = "none";
 return;
@@ -186,6 +207,18 @@ const candidateOptionText = selectCandidates.options[selectCandidates.selectedIn
 const candidateName = candidateOptionText.replace(/\s*\(\d+ votos\)$/, "").trim();
 const electionOptionText = selectElection.options[selectElection.selectedIndex].innerText;
 const electionName = electionOptionText.replace(/\s*\(ID:\s*\d+\)$/, "").trim();
+
+// Verificar doble voto ANTES de mostrar el diálogo de confirmación
+try {
+    const voterAddress = await signer.getAddress();
+    const alreadyVoted = await votingContract.hasVoted(voterAddress, currentTopic);
+    if (alreadyVoted) {
+        alert("⚠️ Error: Ya has emitido tu voto en esta elección. No se permite el doble voto.");
+        return;
+    }
+} catch (checkErr) {
+    console.warn("No se pudo verificar doble voto antes del popup:", checkErr);
+}
 
 const confirmed = window.confirm(
     `¿Confirmas tu voto?\n\n` +
@@ -244,7 +277,7 @@ document.getElementById("btnUnpause").addEventListener("click", () => sendAdminT
 document.getElementById("btnCreateElection").addEventListener("click", () => {
     const topicId = BigInt(document.getElementById("inputTopicId").value);
     const topicDesc = document.getElementById("inputTopicDesc").value;
-    sendAdminTx(identityRegistryContract.addClaimTopic(topicId, topicDesc), `Votación "${topicDesc}" creada.`);
+    sendAdminTx(identityRegistryContract.addClaimTopic(topicId, topicDesc), `Votación "${topicDesc}" (ID: ${topicId}) creada en estado CERRADO. Usa 'Abrir Elección' para activarla cuando esté lista.`);
 });
 
 // C. Abrir/Cerrar Ventana Temporal de Elección
@@ -318,4 +351,101 @@ document.getElementById("btnRevokeVoter").addEventListener("click", () => {
     const userAddress = document.getElementById("inputUserAddress").value;
     const topicId = BigInt(document.getElementById("inputUserTopic").value);
     sendAdminTx(identityRegistryContract.revokeVoter(userAddress, topicId), `Wallet ${userAddress} REVOCADA.`);
+});
+
+// F. Importar Votantes desde CSV (transacción única en lote)
+document.getElementById("btnImportCSV").addEventListener("click", async () => {
+    const rawText = document.getElementById("csvInput").value.trim();
+    if (!rawText) { alert("Introduce el contenido CSV antes de importar."); return; }
+
+    const resultDiv = document.getElementById("csvResult");
+    resultDiv.style.display = "block";
+
+    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const addresses = [];
+    const topicIds = [];
+    const skipped = []; // Entradas inválidas: { line, reason }
+
+    for (const line of lines) {
+        const parts = line.split(',');
+        if (parts.length < 2) continue;
+        const addr = parts[0].trim();
+        const topicStr = parts[1].trim();
+
+        // Omitir fila de cabecera si la primera celda no empieza por 0x
+        if (!addr.startsWith('0x')) continue;
+
+        if (!ethers.isAddress(addr)) {
+            skipped.push({ line, reason: `Dirección inválida: "${addr}"` });
+            continue;
+        }
+
+        const topicIdNum = parseInt(topicStr);
+        if (isNaN(topicIdNum) || topicIdNum <= 0) {
+            skipped.push({ line, reason: `ID de topic inválido: "${topicStr}"` });
+            continue;
+        }
+
+        const topicBig = BigInt(topicIdNum);
+        const topicExists = allowedTopics.some(t => BigInt(t) === topicBig);
+        if (!topicExists) {
+            skipped.push({ line, reason: `Votación con ID ${topicIdNum} no existe en el sistema` });
+            continue;
+        }
+
+        addresses.push(addr);
+        topicIds.push(topicBig);
+    }
+
+    // Mostrar errores de validación si los hay, pero no bloquear
+    let html = "";
+    if (skipped.length > 0) {
+        html += `<p>⚠️ <strong>${skipped.length} entrada(s) omitida(s) por error:</strong></p>`;
+        html += `<ul style="margin:4px 0 12px 0; padding-left:18px;">`;
+        for (const s of skipped) {
+            html += `<li style="color:var(--danger); word-break:break-all;">${s.reason} <span style="color:#888;">(fila: ${s.line})</span></li>`;
+        }
+        html += `</ul>`;
+        resultDiv.innerHTML = html;
+    }
+
+    if (addresses.length === 0) {
+        html += `<p style="color:var(--danger)">❌ No hay entradas válidas para enviar.</p>`;
+        resultDiv.innerHTML = html;
+        return;
+    }
+
+    html += `<p>⏳ Enviando lote de ${addresses.length} votante(s) en una sola transacción...</p>`;
+    resultDiv.innerHTML = html;
+
+    try {
+        const tx = await identityRegistryContract.batchAddVoters(addresses, topicIds);
+        html = html.replace(/<p>⏳ Enviando.*?<\/p>/, `<p>⏳ Transacción enviada. Esperando confirmación del bloque...</p>`);
+        resultDiv.innerHTML = html;
+        const receipt = await tx.wait();
+        html = html.replace(/<p>⏳ Transacción.*?<\/p>/, ``);
+
+        // Leer eventos BatchEntrySkipped emitidos por el contrato
+        const contractSkipped = receipt.logs
+            .map(log => { try { return identityRegistryContract.interface.parseLog(log); } catch { return null; } })
+            .filter(e => e !== null && e.name === 'BatchEntrySkipped');
+
+        const authorized = addresses.length - contractSkipped.length;
+        html += `<p>✅ <strong>${authorized} votante(s) autorizados</strong> en una sola transacción.<br><code style="word-break:break-all; font-size:0.8rem;">${tx.hash}</code></p>`;
+
+        if (contractSkipped.length > 0) {
+            html += `<p>⚠️ <strong>${contractSkipped.length} entrada(s) rechazada(s) por el contrato:</strong></p>`;
+            html += `<ul style="margin:4px 0 0 0; padding-left:18px;">`;
+            for (const e of contractSkipped) {
+                html += `<li style="color:var(--danger); word-break:break-all;">${e.args.reason} — <span style="font-family:monospace">${e.args.user}</span> (topic ${e.args.claimTopic})</li>`;
+            }
+            html += `</ul>`;
+        }
+
+        resultDiv.innerHTML = html;
+    } catch (err) {
+        console.error("Error en batchAddVoters:", err);
+        html += `<p style="color:var(--danger)">❌ Error al enviar el lote: ${err.reason || err.message || 'Error desconocido'}</p>`;
+        resultDiv.innerHTML = html;
+    }
 });
