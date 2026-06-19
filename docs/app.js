@@ -233,12 +233,28 @@ document.getElementById("btnCreateElection").addEventListener("click", () => {
 });
 
 // C. Abrir/Cerrar Ventana Temporal de Elección
-document.getElementById("btnOpenStatus").addEventListener("click", () => {
-    const topicId = BigInt(document.getElementById("inputTargetTopic").value);
+document.getElementById("btnOpenStatus").addEventListener("click", async () => {
+    const topicVal = document.getElementById("inputTargetTopic").value;
+    if (!topicVal) { alert("Introduce el ID del Topic a gestionar."); return; }
+    const topicId = BigInt(topicVal);
+    try {
+        const isOpen = await votingContract.openVote(topicId);
+        if (isOpen) { alert(`La elección ${topicId} ya está ABIERTA.`); return; }
+    } catch (err) {
+        alert("No se pudo verificar el estado de la elección. Comprueba el ID."); return;
+    }
     sendAdminTx(votingContract.changeVotingStatus(topicId, true), `Elección ${topicId} ABIERTA.`);
 });
-document.getElementById("btnCloseStatus").addEventListener("click", () => {
-    const topicId = BigInt(document.getElementById("inputTargetTopic").value);
+document.getElementById("btnCloseStatus").addEventListener("click", async () => {
+    const topicVal = document.getElementById("inputTargetTopic").value;
+    if (!topicVal) { alert("Introduce el ID del Topic a gestionar."); return; }
+    const topicId = BigInt(topicVal);
+    try {
+        const isOpen = await votingContract.openVote(topicId);
+        if (!isOpen) { alert(`La elección ${topicId} ya está CERRADA.`); return; }
+    } catch (err) {
+        alert("No se pudo verificar el estado de la elección. Comprueba el ID."); return;
+    }
     sendAdminTx(votingContract.changeVotingStatus(topicId, false), `Elección ${topicId} CERRADA.`);
 });
 
