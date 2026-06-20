@@ -3,8 +3,8 @@ import hre from "hardhat";
 async function main() {
   console.log(" Iniciando inyección automatizada de datos en Ethereum Sepolia...");
 
-  const IDENTITY_REGISTRY_ADDRESS = "0x5C6A5504F844E18d8908fC24A59b742196a2937e";
-  const VOTING_APP_ADDRESS = "0x5aA077D59A7A65e8205a1bB0F7F79ed3Bd1E68C6";
+  const IDENTITY_REGISTRY_ADDRESS = "0x72bd12f5ab85c1368197B7E9094C0dd9e209eCdE";
+  const VOTING_APP_ADDRESS = "0x08DbaF9a299ED826BfEbb5ed0Adb4B91b74434ec";
 
   // Definición de elecciones y sus candidatos
   const elections = [  
