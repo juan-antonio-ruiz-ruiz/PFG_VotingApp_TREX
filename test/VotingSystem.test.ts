@@ -105,14 +105,14 @@ identityRegistry.connect(admin).revokeVoter(v2, TOPIC_A)
 ).to.be.revertedWith("El usuario no esta registrado en esa votacion");
 });
 
-it("Validación 6: Control de accesos (Ownable) - Solo el Admin puede añadir topics o votantes", async function () {
-await expect(
-identityRegistry.connect(attacker).addClaimTopic(70n, "Ataque")
-).to.be.revertedWithCustomError(identityRegistry, "OwnableUnauthorizedAccount");
+it("Validación 6: Control de accesos (onlyAdmin) - Cuenta no autorizada no puede añadir topics ni votantes", async function () {
+  await expect(
+    identityRegistry.connect(attacker).addClaimTopic(70n, "Ataque")
+  ).to.be.revertedWith("No autorizado: se requiere rol de administrador");
 
-await expect(
-identityRegistry.connect(attacker).addVoter(v1, TOPIC_A, "0x00")
-).to.be.revertedWithCustomError(identityRegistry, "OwnableUnauthorizedAccount");
+  await expect(
+    identityRegistry.connect(attacker).addVoter(v1, TOPIC_A, "0x00")
+  ).to.be.revertedWith("No autorizado: se requiere rol de administrador");
 });
 
 // =========================================================================
@@ -249,9 +249,52 @@ it("Validación 16: batchAddVoters debería omitir entradas inválidas y procesa
   expect(await identityRegistry.isVerified(v2, TOPIC_INVALIDO)).to.be.false;
 });
 
-it("Validación 17: batchAddVoters debería rechazar llamadas de cuentas no propietarias", async function () {
+it("Validación 17: batchAddVoters debería rechazar llamadas de cuentas no autorizadas", async function () {
   await expect(
     identityRegistry.connect(attacker).batchAddVoters([v1], [TOPIC_A])
+  ).to.be.revertedWith("No autorizado: se requiere rol de administrador");
+});
+
+// =========================================================================
+// BLOQUE 4: PRUEBAS DE ADMINISTRACIÓN DELEGADA (AdminManager)
+// =========================================================================
+
+it("Validación 18: addAdmin — El owner puede delegar el rol y el admin delegado puede operar", async function () {
+  // El owner delega el rol en voter1 (en ambos contratos)
+  await identityRegistry.connect(admin).addAdmin(v1);
+  await votingApp.connect(admin).addAdmin(v1);
+
+  // isAdmin devuelve true para el delegado y para el propio owner
+  expect(await identityRegistry.isAdmin(v1)).to.be.true;
+  expect(await identityRegistry.isAdmin(adminAddress)).to.be.true;
+  expect(await identityRegistry.isAdmin(attackerAddress)).to.be.false;
+
+  // El admin delegado puede registrar votantes y candidatos
+  await identityRegistry.connect(voter1).addVoter(v2, TOPIC_A, "0x00");
+  await votingApp.connect(voter1).addCandidate(TOPIC_A, "Candidato Delegado");
+
+  // Pero NO puede pausar el contrato (onlyOwner)
+  await expect(
+    votingApp.connect(voter1).pauseVoting()
+  ).to.be.revertedWithCustomError(votingApp, "OwnableUnauthorizedAccount");
+});
+
+it("Validación 19: removeAdmin — Solo el owner puede añadir/eliminar admins; el admin revocado pierde acceso", async function () {
+  // Solo el owner puede llamar a addAdmin
+  await expect(
+    identityRegistry.connect(attacker).addAdmin(v2)
   ).to.be.revertedWithCustomError(identityRegistry, "OwnableUnauthorizedAccount");
+
+  // Owner añade admin y luego lo revoca
+  await identityRegistry.connect(admin).addAdmin(v1);
+  expect(await identityRegistry.isAdmin(v1)).to.be.true;
+
+  await identityRegistry.connect(admin).removeAdmin(v1);
+  expect(await identityRegistry.isAdmin(v1)).to.be.false;
+
+  // Admin revocado ya no puede operar
+  await expect(
+    identityRegistry.connect(voter1).addVoter(v2, TOPIC_A, "0x00")
+  ).to.be.revertedWith("No autorizado: se requiere rol de administrador");
 });
 });

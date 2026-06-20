@@ -11,18 +11,24 @@ const votingAppABI = [
 "function changeVotingStatus(uint256 _claimTopic, bool _status) external",
 "function pauseVoting() external",
 "function unpauseVoting() external",
-"function hasVoted(address, uint256) external view returns (bool)"
+"function hasVoted(address, uint256) external view returns (bool)",
+"function addAdmin(address _admin) external",
+"function removeAdmin(address _admin) external",
+"function isAdmin(address _addr) external view returns (bool)"
 ];
 
 const identityRegistryABI = [
 "function getAllowedClaimTopics() external view returns (uint256[] memory)",
 "function getClaimTopicDescription(uint256 _claimTopic) external view returns (string memory)",
-"function owner() external view returns (address)", // Para validar el rol admin de forma segura
+"function owner() external view returns (address)",
 "function addClaimTopic(uint256 _claimTopic, string memory _description) external",
 "function addVoter(address _user, uint256 _claimTopic, bytes memory _signature) external",
 "function batchAddVoters(address[] calldata _users, uint256[] calldata _claimTopics) external",
 "event BatchEntrySkipped(address indexed user, uint256 indexed claimTopic, string reason)",
-"function revokeVoter(address _user, uint256 _claimTopic) external"
+"function revokeVoter(address _user, uint256 _claimTopic) external",
+"function addAdmin(address _admin) external",
+"function removeAdmin(address _admin) external",
+"function isAdmin(address _addr) external view returns (bool)"
 ];
 
 let provider;
@@ -351,6 +357,48 @@ document.getElementById("btnRevokeVoter").addEventListener("click", () => {
     const userAddress = document.getElementById("inputUserAddress").value;
     const topicId = BigInt(document.getElementById("inputUserTopic").value);
     sendAdminTx(identityRegistryContract.revokeVoter(userAddress, topicId), `Wallet ${userAddress} REVOCADA.`);
+});
+
+// G. Gestión de Administradores Delegados
+document.getElementById("btnAddAdmin").addEventListener("click", async () => {
+    const addr = document.getElementById("inputAdminAddress").value.trim();
+    if (!ethers.isAddress(addr)) { alert("Dirección inválida."); return; }
+    // Delegar en ambos contratos en paralelo
+    try {
+        electionStatus.style.display = "block";
+        electionStatus.innerText = " Enviando transacciones...";
+        const tx1 = await identityRegistryContract.addAdmin(addr);
+        const tx2 = await votingContract.addAdmin(addr);
+        await Promise.all([tx1.wait(), tx2.wait()]);
+        alert(`✅ Administrador ${addr} añadido en ambos contratos.`);
+        electionStatus.style.display = "none";
+    } catch (err) {
+        console.error(err);
+        alert(err.reason ? `Error: ${err.reason}` : "Transacción revertida. Comprueba los permisos.");
+    }
+});
+document.getElementById("btnRemoveAdmin").addEventListener("click", async () => {
+    const addr = document.getElementById("inputAdminAddress").value.trim();
+    if (!ethers.isAddress(addr)) { alert("Dirección inválida."); return; }
+    try {
+        electionStatus.style.display = "block";
+        electionStatus.innerText = " Enviando transacciones...";
+        const tx1 = await identityRegistryContract.removeAdmin(addr);
+        const tx2 = await votingContract.removeAdmin(addr);
+        await Promise.all([tx1.wait(), tx2.wait()]);
+        alert(`✅ Administrador ${addr} eliminado en ambos contratos.`);
+        electionStatus.style.display = "none";
+    } catch (err) {
+        console.error(err);
+        alert(err.reason ? `Error: ${err.reason}` : "Transacción revertida. Comprueba los permisos.");
+    }
+});
+document.getElementById("btnCheckAdmin").addEventListener("click", async () => {
+    const addr = document.getElementById("inputAdminAddress").value.trim();
+    if (!ethers.isAddress(addr)) { alert("Dirección inválida."); return; }
+    const isAdminIR = await identityRegistryContract.isAdmin(addr);
+    const isAdminVA = await votingContract.isAdmin(addr);
+    alert(`Dirección: ${addr}\n\nIdentityRegistry: ${isAdminIR ? '✅ Admin' : '❌ No es admin'}\nVotingApp:        ${isAdminVA ? '✅ Admin' : '❌ No es admin'}`);
 });
 
 // F. Importar Votantes desde CSV (transacción única en lote)

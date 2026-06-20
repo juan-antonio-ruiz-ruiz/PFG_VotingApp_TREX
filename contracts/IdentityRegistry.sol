@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol";
+import "./AdminManager.sol";
 
 /**
  * @title identityRegistry
@@ -11,7 +11,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
  * @dev Recrea de forma simplificada el comportamiento del estandard ERC-3643 (Protocolo T-REX),
  * gestionando el alta, baja y validación de claims (credenciales de identidad).
  */
-contract IdentityRegistry is Ownable {
+contract IdentityRegistry is AdminManager {
     
     // --- VARIABLES DE ESTADO ---
    
@@ -48,11 +48,10 @@ contract IdentityRegistry is Ownable {
     // Se emite por cada entrada inválida omitida durante una importación en lote
     event BatchEntrySkipped(address indexed user, uint256 indexed claimTopic, string reason);
 
-
     // --- CONSTRUCTOR ---
 
-    // Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
-    constructor() Ownable(msg.sender) {
+    // AdminManager (contrato base) ya inicializa Ownable(msg.sender)
+    constructor() {
         // Ownable guardará internamente al dueño del contrato (administrador de la mesa electoral)
         // Inicializamos con un topic por defecto: 50
         allowedClaimTopics.push(50);
@@ -67,7 +66,7 @@ contract IdentityRegistry is Ownable {
      * @param _claimTopic El nuevo identificador de tipo de credencial a permitir.
      * @param _description Descripción de la elección para mostrar en la GUI.
      */
-    function addClaimTopic(uint256 _claimTopic, string memory _description) external onlyOwner {
+    function addClaimTopic(uint256 _claimTopic, string memory _description) external onlyAdmin {
         require(!isClaimTopicAllowed[_claimTopic], "La votacion ya existe");
         require(bytes(_description).length > 0, "La descripcion no puede estar vacia");
         
@@ -85,7 +84,7 @@ contract IdentityRegistry is Ownable {
      * @param _claimTopic El tipo de credencial a asignar (debe estar en allowedClaimTopics).
      * @param _signature Datos criptograficos de la firma (simulada durante las pruebas).
      */
-    function addVoter(address _user, uint256 _claimTopic, bytes memory _signature) external onlyOwner {
+    function addVoter(address _user, uint256 _claimTopic, bytes memory _signature) external onlyAdmin {
         // Evita registrar la direccion cero (invalida/quemada)
         require(_user != address(0), "Direccion invalida");
         // Valida que el claim topic sea permitido
@@ -111,7 +110,7 @@ contract IdentityRegistry is Ownable {
      * @param _users Array de direcciones de billetera a autorizar.
      * @param _claimTopics Array de identificadores de credencial (mismo orden que _users).
      */
-    function batchAddVoters(address[] calldata _users, uint256[] calldata _claimTopics) external onlyOwner {
+    function batchAddVoters(address[] calldata _users, uint256[] calldata _claimTopics) external onlyAdmin {
         require(_users.length == _claimTopics.length, "Los arrays deben tener el mismo tamano");
         require(_users.length > 0, "El array no puede estar vacio");
 
@@ -141,7 +140,7 @@ contract IdentityRegistry is Ownable {
      * @param _user Dirección de la billetera que se desea revocar.
      * @param _claimTopic El tema de la credencial que se desea revocar.
      */
-    function revokeVoter(address _user, uint256 _claimTopic) external onlyOwner {
+    function revokeVoter(address _user, uint256 _claimTopic) external onlyAdmin {
         // Control de errores: No se puede revocar a alguien que no esta activo
         require(_credentialRegistry[_user][_claimTopic].valid, "El usuario no esta registrado en esa votacion");
         
@@ -191,6 +190,7 @@ contract IdentityRegistry is Ownable {
         Credential memory cred = _credentialRegistry[_user][_topic];
         
         // Evaluacion logica de los 3 requisitos de cumplimiento del protocolo T-REX
-        return (cred.valid && cred.claimTopic == _topic &&isClaimTopicAllowed[cred.claimTopic] && cred.issuer == owner());
+        // El issuer es valido si es el owner actual o un administrador delegado activo
+        return (cred.valid && cred.claimTopic == _topic && isClaimTopicAllowed[cred.claimTopic] && (cred.issuer == owner() || admins[cred.issuer]));
     }
 }

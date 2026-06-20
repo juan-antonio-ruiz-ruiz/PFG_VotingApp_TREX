@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "@openzeppelin/contracts/access/Ownable.sol"; //Estándar de propiedad de OpenZeppelin
+import "./AdminManager.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol"; //Estándar de pausa de OpenZeppelin
 
 /**
@@ -22,7 +22,7 @@ interface IIdentityRegistry {
  * @dev Implementa el contrato "Modular Compliance" del estandard ERC-3643, aplicando filtros
  * de elegibilidad dinamicos antes de procesar cualquier voto en la blockchain. Implementa control de ciclo de vida (Pausable).
  */
-contract VotingApp is Ownable, Pausable {
+contract VotingApp is AdminManager, Pausable {
     
     // --- VARIABLES DE INTERCONEXION Y ESTADO ---
 
@@ -56,7 +56,6 @@ contract VotingApp is Ownable, Pausable {
     event VoteAdded(address indexed voter, uint256 indexed claimTopic, uint256 indexed candidateId);
     event VotingStatusChanged(uint256 indexed claimTopic, bool open);
 
-
     /**
      * @notice Indica si el votante cumple las reglas de elegibilidad (Modular Compliance de ERC-3643).
      * @dev Intercepta la transaccion de voto y aplica una triple verificación de seguridad on-chain.
@@ -84,7 +83,8 @@ contract VotingApp is Ownable, Pausable {
      * @notice Constructor del sistema de votación. Pasamos el msg.sender al constructor base de Ownable de OpenZeppelin
      * @param _initialIdentityRegistry Dirección real del contrato IdentityRegistry previamente desplegado.
      */
-    constructor(address _initialIdentityRegistry) Ownable(msg.sender) {        
+    // AdminManager (contrato base) ya inicializa Ownable(msg.sender)
+    constructor(address _initialIdentityRegistry) {        
         require(_initialIdentityRegistry != address(0), "Direccion de identidad invalida");
         
         identityRegistry = IIdentityRegistry(_initialIdentityRegistry);
@@ -122,7 +122,7 @@ contract VotingApp is Ownable, Pausable {
      * @param _claimTopic El tipo de credencial para la cual se registra el candidato.
      * @param _name Nombre del candidato.
      */
-    function addCandidate(uint256 _claimTopic, string memory _name) external onlyOwner {
+    function addCandidate(uint256 _claimTopic, string memory _name) external onlyAdmin {
         // Validamos que el claim topic es permitido en el sistema
         require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Votacion no permitida");
         
@@ -166,7 +166,7 @@ contract VotingApp is Ownable, Pausable {
      * @param _claimTopic El tipo de credencial de la elección a modificar.
      * @param _status true para abrir, false para cerrar.
      */
-    function changeVotingStatus(uint256 _claimTopic, bool _status) external onlyOwner {
+    function changeVotingStatus(uint256 _claimTopic, bool _status) external onlyAdmin {
         // Validamos que el claim topic es permitido en el sistema
         require(identityRegistry.isAllowedClaimTopic(_claimTopic), "Votacion no permitida");
         
