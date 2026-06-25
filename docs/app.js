@@ -85,12 +85,13 @@ alert("MetaMask no detectado. Instala la extensión para operar.");
 }
 });
 
-// Función para comprobar si la wallet conectada es el Owner del sistema
+// Función para comprobar si la wallet conectada es el Owner o un Admin del sistema
 async function verifyAdminRole(userAddress) {
     try {
         const contractOwner = await identityRegistryContract.owner();
-        // Si las direcciones coinciden, desplegamos la barra de navegación exclusiva
-        if (userAddress.toLowerCase() === contractOwner.toLowerCase()) {
+        const isOwner = userAddress.toLowerCase() === contractOwner.toLowerCase();
+        const isAdmin = isOwner || await votingContract.isAdmin(userAddress);
+        if (isAdmin) {
             adminNavbar.style.display = "flex";
         } else {
             adminNavbar.style.display = "none";
@@ -264,12 +265,19 @@ async function sendAdminTx(contractMethodPromise, logMessage) {
     try {
         electionStatus.style.display = "block";
         electionStatus.innerText = " Enviando transacción al nodo local...";
+
+        // 1. Mostrar progreso y esperar firma en MetaMask
         const tx = await contractMethodPromise;
         electionStatus.innerText = " Minando operación en el bloque local...";
+        
+        // 2. Esperar al minado del bloque
         await tx.wait();
+
+        // 3. Notificar exito y recargar datos
         alert(`Operación confirmada: ${logMessage}`);
         await loadAvailableElections();
     } catch (error) {
+        // 4. Tratamiento de errores y decodificacion de reverts
         console.error("Fallo en la operación:", error);
         alert(error.reason ? `Error de Seguridad: ${error.reason}` : "La transacción fue revertida. Comprueba los permisos de tu rol.");
     }
