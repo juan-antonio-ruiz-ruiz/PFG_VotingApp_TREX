@@ -93,13 +93,13 @@ contract IdentityRegistry is AdminManager {
         // Escritura en STORAGE: Guardamos la estructura en el mapeo de persistencia
         _credentialRegistry[_user][_claimTopic] = Credential({
             claimTopic: _claimTopic,
-            issuer: owner(),
+            issuer: msg.sender,
             signature: _signature,
             valid: true
         });
 
         // Emitimos el evento para que los servidores Web3 o el frontend capturen el cambio al instante
-        emit CredentialAuthorized(_user, owner(), _claimTopic);
+        emit CredentialAuthorized(_user, msg.sender, _claimTopic);
     }
 
     /**
@@ -126,12 +126,12 @@ contract IdentityRegistry is AdminManager {
 
             _credentialRegistry[_users[i]][_claimTopics[i]] = Credential({
                 claimTopic: _claimTopics[i],
-                issuer: owner(),
+                issuer: msg.sender,
                 signature: bytes(""),
                 valid: true
             });
 
-            emit CredentialAuthorized(_users[i], owner(), _claimTopics[i]);
+            emit CredentialAuthorized(_users[i], msg.sender, _claimTopics[i]);
         }
     }
 

@@ -1,6 +1,6 @@
 // ===== CONFIGURACIÓN CENTRAL DE DIRECCIONES =====
-const identityRegistryAddress = "0x72bd12f5ab85c1368197B7E9094C0dd9e209eCdE";
-const votingAppAddress = "0x08DbaF9a299ED826BfEbb5ed0Adb4B91b74434ec";
+const identityRegistryAddress = "0xC8FCc937AC68de77288a350751eE3caE346f42F3";
+const votingAppAddress = "0x1F05076fb764b6861f038ca3b6Bd553D486d905B";
 
 const votingAppABI = [
 "function openVote(uint256) external view returns (bool)",
