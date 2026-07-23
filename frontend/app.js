@@ -1,4 +1,4 @@
-// ===== CONFIGURACIÓN CENTRAL DE DIRECCIONES =====
+// ===== CONFIGURACIÓN CENTRAL DE DIRECCIONES =====  
 const identityRegistryAddress = "0xC8FCc937AC68de77288a350751eE3caE346f42F3";
 const votingAppAddress = "0x1F05076fb764b6861f038ca3b6Bd553D486d905B";
 
